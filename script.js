@@ -125,13 +125,13 @@ form.addEventListener('submit', async (e) => {
         statusEl.textContent = 'Task dibuat, namun jobId tidak ditemukan di respons.';
         return;
       }
-      statusEl.textContent = `Task dibuat (${jobId}). Menunggu hasil…`;
+  statusEl.textContent = `Task dibuat (${jobId}). Menyiapkan koneksi SSE…`;
       // Prefer SSE for instant updates; fallback to polling
       let settled = false;
       let es;
       try {
-        es = new EventSource(`/api/kie/events?job_id=${encodeURIComponent(jobId)}`);
-        es.onopen = () => logDebug('SSE opened');
+  es = new EventSource(`/api/kie/events?job_id=${encodeURIComponent(jobId)}`);
+  es.onopen = () => { logDebug('SSE opened'); statusEl.textContent = `SSE tersambung. Menunggu hasil…`; };
         es.onmessage = (evt) => {
           if (settled) return;
           try {
@@ -154,6 +154,7 @@ form.addEventListener('submit', async (e) => {
             setLoading(false);
             es && es.close();
             logDebug('SSE closed (delivered)');
+            statusEl.textContent = statusEl.textContent || 'Selesai (SSE callback)';
           } catch (err) {
             // Ignore parse errors, fallback to polling if needed
           }
@@ -162,6 +163,7 @@ form.addEventListener('submit', async (e) => {
           // SSE may fail behind some proxies; we'll rely on polling below
           es && es.close();
           logDebug('SSE error/closed', e);
+          if (!settled) statusEl.textContent = 'SSE gagal, beralih ke polling…';
         };
       } catch {}
 
@@ -169,6 +171,7 @@ form.addEventListener('submit', async (e) => {
       const start = Date.now();
       const timeoutMs = 5 * 60 * 1000; // 5 menit
       const intervalMs = 2000;
+      let firstPoll = true;
       const timer = setInterval(async () => {
         if (settled) { clearInterval(timer); return; }
         try {
@@ -176,6 +179,7 @@ form.addEventListener('submit', async (e) => {
           if (!r.ok) throw new Error(`Status error ${r.status}`);
           const s = await r.json();
           logDebug('poll result', s);
+          if (firstPoll) { statusEl.textContent = 'Polling hasil…'; firstPoll = false; }
           if (s.status === 'completed' || s.output) {
             clearInterval(timer);
             const out = s.output || s.raw?.output || s.raw?.data?.output;
