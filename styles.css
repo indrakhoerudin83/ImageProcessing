@@ -111,7 +111,8 @@ a:hover { color: var(--red-500); text-decoration: underline; text-underline-offs
 
 /* Loading spinner */
 .spinner { display: inline-grid; grid-auto-flow: column; gap: .5rem; align-items: center; }
-.dot { width: 12px; height: 12px; border-radius: 999px; background: var(--blue-500); opacity: .95; animation: bounce 1.2s infinite ease-in-out; }
+.dot { width: 12px; height: 12px; border-radius: 999px; background: var(--blue-500); opacity: .95; animation: bounce 1.2s infinite ease-in-out; animation-play-state: paused; }
+.spinner.running .dot { animation-play-state: running; }
 .dot2 { animation-delay: .15s; background: var(--red-500); }
 .dot3 { animation-delay: .3s; }
 @keyframes bounce {

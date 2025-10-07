@@ -28,6 +28,7 @@ function logDebug(...args) {
 
 function setLoading(isLoading, msg = '') {
   spinner.classList.toggle('hidden', !isLoading);
+  spinner.classList.toggle('running', isLoading);
   submitBtn.disabled = isLoading;
   statusEl.textContent = msg || (isLoading ? 'Processing…' : '');
 }
@@ -35,6 +36,7 @@ function setLoading(isLoading, msg = '') {
 function showImageFromBase64(b64) {
   outputImg.src = `data:image/png;base64,${b64}`;
   outputImg.classList.remove('hidden');
+  spinner.classList.remove('running');
 }
 
 function clearAll() {
@@ -131,10 +133,12 @@ form.addEventListener('submit', async (e) => {
             outputImg.src = out.image_url;
             outputImg.classList.remove('hidden');
               statusEl.textContent = 'Done (SSE callback)';
+            spinner.classList.remove('running');
           } else if (out?.image_base64) {
             outputImg.src = `data:image/png;base64,${out.image_base64}`;
             outputImg.classList.remove('hidden');
               statusEl.textContent = 'Done (SSE callback)';
+            spinner.classList.remove('running');
           } else {
               statusEl.textContent = 'Task finished but no image found in output.';
           }
@@ -171,14 +175,16 @@ form.addEventListener('submit', async (e) => {
         if (s.status === 'completed' || s.output) {
           clearInterval(timer);
           const out = s.output || s.raw?.output || s.raw?.data?.output;
-          if (out?.image_url) {
+            if (out?.image_url) {
             outputImg.src = out.image_url;
             outputImg.classList.remove('hidden');
               statusEl.textContent = 'Done (callback)';
+              spinner.classList.remove('running');
           } else if (out?.image_base64) {
             outputImg.src = `data:image/png;base64,${out.image_base64}`;
             outputImg.classList.remove('hidden');
               statusEl.textContent = 'Done (callback)';
+              spinner.classList.remove('running');
           } else {
               statusEl.textContent = 'Task finished but no image found in output.';
           }
