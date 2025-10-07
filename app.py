@@ -339,6 +339,49 @@ KIE_RESULTS: Dict[str, Any] = {}
 KIE_SUBSCRIBERS: Dict[str, list[asyncio.Queue]] = {}
 
 
+def _normalize_kie_output(payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Try to extract a consistent output structure from KIE payload.
+    Returns a dict like {"image_url": str} or {"image_base64": str}.
+    """
+    if not isinstance(payload, dict):
+        return None
+    # Direct shapes
+    out = payload.get("output") or payload.get("data", {}).get("output")
+    if isinstance(out, dict) and (out.get("image_url") or out.get("image_base64")):
+        return out
+    d = payload.get("data") if isinstance(payload.get("data"), dict) else payload
+    # Parse resultJson if present
+    rj = d.get("resultJson") if isinstance(d, dict) else None
+    parsed = None
+    if isinstance(rj, str):
+        try:
+            parsed = json.loads(rj)
+        except Exception:
+            parsed = None
+    elif isinstance(rj, dict):
+        parsed = rj
+    # Look for common keys
+    candidates = []
+    if isinstance(parsed, dict):
+        if isinstance(parsed.get("resultUrls"), list) and parsed["resultUrls"]:
+            candidates = parsed["resultUrls"]
+        elif isinstance(parsed.get("urls"), list) and parsed["urls"]:
+            candidates = parsed["urls"]
+        elif isinstance(parsed.get("images"), list) and parsed["images"]:
+            candidates = parsed["images"]
+    # Some providers might already expose image_url at top-level data
+    if not candidates and isinstance(d, dict):
+        if isinstance(d.get("resultUrls"), list):
+            candidates = d["resultUrls"]
+        elif isinstance(d.get("urls"), list):
+            candidates = d["urls"]
+    if candidates:
+        url = candidates[0]
+        if isinstance(url, str) and url.startswith("http"):
+            return {"image_url": url}
+    return None
+
+
 def _extract_job_id(payload: Dict[str, Any]) -> Optional[str]:
     # Try common keys
     for key in ("id", "jobId", "job_id", "taskId", "task_id"):
@@ -374,6 +417,13 @@ async def kie_callback(request: Request, token: Optional[str] = Query(default=No
     if not job_id:
         raise HTTPException(status_code=400, detail="Missing job id in payload")
 
+    # Attach normalized output for convenience
+    norm = _normalize_kie_output(payload)
+    if norm:
+        try:
+            payload["output"] = norm
+        except Exception:
+            pass
     KIE_RESULTS[job_id] = payload
     # Notify SSE subscribers if any
     queues = KIE_SUBSCRIBERS.get(job_id) or []
@@ -392,8 +442,10 @@ def kie_result(job_id: str):
     if data is None:
         return {"status": "pending", "job_id": job_id}
     # Try to surface a normalized view
-    status = data.get("status") or data.get("state") or data.get("data", {}).get("status")
+    status = data.get("status") or data.get("state") or data.get("data", {}).get("status") or "completed"
     output = data.get("output") or data.get("data", {}).get("output")
+    if not output:
+        output = _normalize_kie_output(data)
     return {"status": status or "completed", "job_id": job_id, "raw": data, "output": output}
 
 
