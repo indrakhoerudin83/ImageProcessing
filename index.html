@@ -1,17 +1,17 @@
 <!doctype html>
-<html lang="id">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Mini Photoshop AI</title>
+    <title>Artifex</title>
   <link rel="icon" href="/favicon.ico" />
   <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <header class="app-header">
       <div class="container">
-  <h1 class="gradient-text">Mini Photoshop + AI</h1>
-        <p class="subtitle">Upload gambar atau tulis perintah, lalu proses dengan AI</p>
+  <h1 class="gradient-text">Artifex</h1>
+        <p class="subtitle">Upload an image or enter a prompt, then generate with AI.</p>
       </div>
     </header>
 
@@ -20,28 +20,27 @@
         <form id="aiForm" class="form-grid">
           
           <div class="form-group">
-            <label for="file">Gambar (opsional)</label>
+            <label for="file">Image</label>
             <input id="file" name="file" type="file" accept="image/*" />
-            <small>Anda bisa unggah gambar, atau kosongkan dan hanya pakai teks perintah.</small>
           </div>
 
           <div class="form-group">
-            <label for="prompt">Teks/Perintah (opsional)</label>
-            <textarea id="prompt" name="prompt" rows="3" placeholder="Contoh: ubah jadi grayscale dan tingkatkan kontras"></textarea>
+            <label for="prompt">Prompt</label>
+            <textarea id="prompt" name="prompt" rows="3" placeholder="Example: make it grayscale and boost contrast"></textarea>
           </div>
 
           
 
           <div class="actions">
-            <button id="submitBtn" type="submit" class="btn primary">Proses</button>
-            <button id="clearBtn" type="button" class="btn">Bersihkan</button>
+            <button id="submitBtn" type="submit" class="btn primary">Generate</button>
+            <button id="clearBtn" type="button" class="btn">Clear</button>
           </div>
         </form>
       </section>
 
       <section class="preview-card">
         <div class="preview-header">
-          <h2>Hasil</h2>
+          <h2>Result</h2>
           <div id="status" class="status" aria-live="polite" role="status"></div>
         </div>
 
@@ -57,7 +56,7 @@
         <div class="debug-panel">
           <label style="display:flex;align-items:center;gap:.5rem;margin:.5rem 0;">
             <input id="debugToggle" type="checkbox" />
-            <span>Tampilkan debug</span>
+            <span>Show debug</span>
           </label>
           <pre id="debugLog" style="display:none;max-height:200px;overflow:auto;background:#0b1020;color:#dbeafe;padding:.75rem;border-radius:.5rem;"></pre>
         </div>
@@ -66,7 +65,7 @@
 
     <footer class="app-footer">
       <div class="container">
-        <span>Local demo. Jika environment AI_API_URL di-set, akan mencoba API eksternal.</span>
+        <span>Local demo. If AI_API_URL is set, it will try an external API.</span>
       </div>
     </footer>
 

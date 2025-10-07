@@ -29,7 +29,7 @@ function logDebug(...args) {
 function setLoading(isLoading, msg = '') {
   spinner.classList.toggle('hidden', !isLoading);
   submitBtn.disabled = isLoading;
-  statusEl.textContent = msg || (isLoading ? 'Memproses…' : '');
+  statusEl.textContent = msg || (isLoading ? 'Processing…' : '');
 }
 
 function showImageFromBase64(b64) {
@@ -79,7 +79,7 @@ form.addEventListener('submit', async (e) => {
         logDebug('temp image url', imageUrl);
       } catch (e) {
         setLoading(false);
-        statusEl.textContent = `Gagal upload gambar: ${e.message || e}`;
+  statusEl.textContent = `Image upload failed: ${e.message || e}`;
         return;
       }
     }
@@ -100,7 +100,7 @@ form.addEventListener('submit', async (e) => {
       body: JSON.stringify(payload),
     });
     if (!resp.ok) {
-      let msg = `Gagal (${resp.status})`;
+      let msg = `Failed (${resp.status})`;
       try { const j = await resp.json(); msg = j.detail || JSON.stringify(j); } catch {}
       throw new Error(msg);
     }
@@ -110,16 +110,16 @@ form.addEventListener('submit', async (e) => {
     const jobId = result?.data?.taskId || result?.data?.id || result?.taskId || result?.id || result?.data?.recordId;
     logDebug('derived jobId', jobId);
     if (!jobId) {
-      statusEl.textContent = 'Task dibuat, namun jobId tidak ditemukan di respons.';
+  statusEl.textContent = 'Task created, but jobId was not found in the response.';
       return;
     }
-    statusEl.textContent = `Task dibuat (${jobId}). Menyiapkan koneksi SSE…`;
+  statusEl.textContent = `Task created (${jobId}). Preparing SSE connection…`;
     // Prefer SSE for instant updates; fallback to polling
     let settled = false;
     let es;
     try {
       es = new EventSource(`/api/kie/events?job_id=${encodeURIComponent(jobId)}`);
-      es.onopen = () => { logDebug('SSE opened'); statusEl.textContent = `SSE tersambung. Menunggu hasil…`; };
+  es.onopen = () => { logDebug('SSE opened'); statusEl.textContent = `SSE connected. Waiting for result…`; };
       es.onmessage = (evt) => {
         if (settled) return;
         try {
@@ -130,13 +130,13 @@ form.addEventListener('submit', async (e) => {
           if (out?.image_url) {
             outputImg.src = out.image_url;
             outputImg.classList.remove('hidden');
-            statusEl.textContent = 'Selesai (SSE callback)';
+              statusEl.textContent = 'Done (SSE callback)';
           } else if (out?.image_base64) {
             outputImg.src = `data:image/png;base64,${out.image_base64}`;
             outputImg.classList.remove('hidden');
-            statusEl.textContent = 'Selesai (SSE callback)';
+              statusEl.textContent = 'Done (SSE callback)';
           } else {
-            statusEl.textContent = 'Task selesai tapi tidak ada gambar pada output.';
+              statusEl.textContent = 'Task finished but no image found in output.';
           }
           settled = true;
           setLoading(false);
@@ -151,13 +151,13 @@ form.addEventListener('submit', async (e) => {
         // SSE may fail behind some proxies; we'll rely on polling below
         es && es.close();
         logDebug('SSE error/closed', e);
-        if (!settled) statusEl.textContent = 'SSE gagal, beralih ke polling…';
+          if (!settled) statusEl.textContent = 'SSE failed, switching to polling…';
       };
     } catch {}
 
     // Polling fallback with timeout
     const start = Date.now();
-    const timeoutMs = 5 * 60 * 1000; // 5 menit
+  const timeoutMs = 5 * 60 * 1000; // 5 minutes
     const intervalMs = 2000;
     let firstPoll = true;
     const timer = setInterval(async () => {
@@ -167,20 +167,20 @@ form.addEventListener('submit', async (e) => {
         if (!r.ok) throw new Error(`Status error ${r.status}`);
         const s = await r.json();
         logDebug('poll result', s);
-        if (firstPoll) { statusEl.textContent = 'Polling hasil…'; firstPoll = false; }
+  if (firstPoll) { statusEl.textContent = 'Polling for result…'; firstPoll = false; }
         if (s.status === 'completed' || s.output) {
           clearInterval(timer);
           const out = s.output || s.raw?.output || s.raw?.data?.output;
           if (out?.image_url) {
             outputImg.src = out.image_url;
             outputImg.classList.remove('hidden');
-            statusEl.textContent = 'Selesai (callback)';
+              statusEl.textContent = 'Done (callback)';
           } else if (out?.image_base64) {
             outputImg.src = `data:image/png;base64,${out.image_base64}`;
             outputImg.classList.remove('hidden');
-            statusEl.textContent = 'Selesai (callback)';
+              statusEl.textContent = 'Done (callback)';
           } else {
-            statusEl.textContent = 'Task selesai tapi tidak ada gambar pada output.';
+              statusEl.textContent = 'Task finished but no image found in output.';
           }
           settled = true;
           setLoading(false);
@@ -189,7 +189,7 @@ form.addEventListener('submit', async (e) => {
         } else if (s.status === 'failed') {
           clearInterval(timer);
           setLoading(false);
-          statusEl.textContent = 'Task gagal.';
+            statusEl.textContent = 'Task failed.';
           logDebug('poll status failed');
         } else {
           statusEl.textContent = `KIE.ai: ${s.status || 'pending'}…`;
@@ -197,21 +197,21 @@ form.addEventListener('submit', async (e) => {
         if (Date.now() - start > timeoutMs) {
           clearInterval(timer);
           setLoading(false);
-          statusEl.textContent = 'Timeout menunggu hasil.';
+          statusEl.textContent = 'Timeout waiting for result.';
           es && es.close();
           logDebug('poll timeout');
         }
       } catch (e) {
         clearInterval(timer);
         setLoading(false);
-        statusEl.textContent = `Error polling: ${e.message || e}`;
+  statusEl.textContent = `Polling error: ${e.message || e}`;
         es && es.close();
         logDebug('poll error', e);
       }
     }, intervalMs);
   } catch (err) {
     console.error(err);
-    statusEl.textContent = `Error: ${err.message || err}`;
+  statusEl.textContent = `Error: ${err.message || err}`;
   } finally {
     setLoading(false);
   }
