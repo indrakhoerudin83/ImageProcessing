@@ -13,8 +13,10 @@
   --red-500: #ff4b4b;
   --red-400: #ff6a6a;
 
+  /* Dynamic accents (overridable by JS) */
   --accent: var(--blue-500);
   --accent-2: var(--red-500);
+  --accent-50: rgba(59, 91, 255, 0.08);
   --danger: #ef4444;
   --radius: 14px;
 }
@@ -26,8 +28,8 @@ body {
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
   /* Soft blue↔red background like screenshot */
   background:
-    radial-gradient(1100px 700px at 15% 10%, rgba(106,128,255,0.38) 0%, rgba(106,128,255,0.16) 40%, rgba(255,255,255,0) 62%),
-    radial-gradient(1100px 700px at 85% 10%, rgba(255,106,106,0.36) 0%, rgba(255,106,106,0.14) 40%, rgba(255,255,255,0) 62%),
+    radial-gradient(1100px 700px at 15% 10%, color-mix(in oklab, var(--accent) 38%, transparent) 0%, color-mix(in oklab, var(--accent) 16%, transparent) 40%, rgba(255,255,255,0) 62%),
+    radial-gradient(1100px 700px at 85% 10%, color-mix(in oklab, var(--accent-2) 36%, transparent) 0%, color-mix(in oklab, var(--accent-2) 14%, transparent) 40%, rgba(255,255,255,0) 62%),
     var(--bg);
   color: var(--text);
 }
@@ -43,10 +45,11 @@ body {
 
 /* Gradient text like hero headline */
 .gradient-text {
-  background: linear-gradient(90deg, var(--blue-500), var(--red-500));
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+  animation: titleShimmer 6s ease-in-out infinite;
 }
 
 main { display: grid; gap: 1rem; grid-template-columns: 1fr; }
@@ -81,14 +84,32 @@ main { display: grid; gap: 1rem; grid-template-columns: 1fr; }
   padding: .7rem 1rem;
   border-radius: 10px;
   cursor: pointer;
+  position: relative;
+  overflow: hidden; /* for ripple */
+  transition: transform .15s ease, box-shadow .15s ease, filter .15s ease, background-color .2s ease;
 }
 .btn:hover { background: #ffffff; }
-.btn.primary { background: linear-gradient(90deg, var(--red-500), var(--red-400)); border: none; color: #ffffff; font-weight: 700; box-shadow: 0 8px 20px rgba(239, 68, 68, 0.25); transition: transform .15s ease, box-shadow .15s ease, filter .15s ease; }
-.btn.primary:hover { filter: brightness(1.05); transform: translateY(-1px); box-shadow: 0 10px 24px rgba(239, 68, 68, 0.35); }
+.btn.primary { background: linear-gradient(90deg, var(--accent-2), color-mix(in oklab, var(--accent-2), white 10%)); border: none; color: #ffffff; font-weight: 700; box-shadow: 0 8px 20px color-mix(in oklab, var(--accent-2), transparent 70%); }
+.btn.primary:hover { filter: brightness(1.05); transform: translateY(-1px); box-shadow: 0 10px 24px color-mix(in oklab, var(--accent-2), transparent 60%); }
+.btn:active { transform: translateY(0); filter: brightness(.98); }
+
+/* Ripple circle injected by JS */
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  transform: scale(0);
+  pointer-events: none;
+  background: color-mix(in oklab, var(--accent-2), white 15%);
+  opacity: .45;
+  animation: ripple .6s ease-out;
+}
+@keyframes ripple {
+  to { transform: scale(4); opacity: 0; }
+}
 
 /* Link styling to fit palette */
-a { color: var(--blue-500); text-decoration: none; }
-a:hover { color: var(--red-500); text-decoration: underline; text-underline-offset: 3px; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-2); text-decoration: underline; text-underline-offset: 3px; }
 
 .preview-header { display: flex; align-items: center; justify-content: space-between; }
 .status { color: var(--muted); font-size: .9rem; }
@@ -98,29 +119,65 @@ a:hover { color: var(--red-500); text-decoration: underline; text-underline-offs
   display: grid;
   place-items: center;
   min-height: 300px;
-  background: #f9fafb;
+  background: color-mix(in oklab, var(--panel-2), var(--accent-50));
   border: 1px dashed #cbd5e1;
   border-radius: 12px;
   overflow: hidden;
 }
 
-.preview-img { max-width: 100%; height: auto; display: block; }
+.preview-img { max-width: 100%; height: auto; display: block; will-change: transform, opacity; }
 .hidden { display: none; }
 
 .app-footer { color: var(--muted); font-size: .9rem; padding: 1rem 0; text-align: center; }
 
 /* Loading spinner */
 .spinner { display: inline-grid; grid-auto-flow: column; gap: .5rem; align-items: center; }
-.dot { width: 12px; height: 12px; border-radius: 999px; background: var(--blue-500); opacity: .95; animation: bounce 1.2s infinite ease-in-out; animation-play-state: paused; }
+.dot { width: 12px; height: 12px; border-radius: 999px; background: var(--accent); opacity: .95; animation: bounce 1.2s infinite ease-in-out; animation-play-state: paused; }
 .spinner.running .dot { animation-play-state: running; }
-.dot2 { animation-delay: .15s; background: var(--red-500); }
+.dot2 { animation-delay: .15s; background: var(--accent-2); }
 .dot3 { animation-delay: .3s; }
 @keyframes bounce {
   0%, 80%, 100% { transform: scale(0.8); opacity: .6; }
   40% { transform: scale(1.15); opacity: 1; }
 }
 
+/* Status text subtle fade on change */
+.status {
+  transition: color .2s ease;
+}
+.status-change { animation: statusFade .3s ease; }
+@keyframes statusFade { from { opacity: .35; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Image appear animation */
+.img-appear { animation: imgIn .45s cubic-bezier(.2,.6,.2,1); }
+@keyframes imgIn { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+/* Card reveal on mount */
+.reveal { opacity: 0; transform: translateY(8px) scale(.99); }
+.reveal.show { opacity: 1; transform: translateY(0) scale(1); transition: opacity .4s ease, transform .4s ease; }
+
+/* Title shimmer for a hint of motion */
+@keyframes titleShimmer {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.08); }
+}
+
+/* Inputs focus glow in accent color */
+.form-group input[type="file"], .form-group input[type="url"], .form-group textarea, .form-group select {
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+.form-group input[type="file"]:focus-visible, .form-group input[type="url"]:focus-visible, .form-group textarea:focus-visible, .form-group select:focus-visible {
+  outline: none;
+  border-color: color-mix(in oklab, var(--accent), black 5%);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent), transparent 75%);
+}
+
 @media (min-width: 900px) {
   main { grid-template-columns: 1fr 1fr; }
   .preview-area { min-height: 480px; }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
 }
