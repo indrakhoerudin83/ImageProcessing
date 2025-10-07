@@ -31,11 +31,8 @@ app.add_middleware(
 )
 
 
-STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
-INDEX_FILE = os.path.join(STATIC_DIR, "index.html")
-
-# Serve static assets from /static
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+PROJECT_ROOT = os.path.dirname(__file__)
+INDEX_FILE = os.path.join(PROJECT_ROOT, "index.html")
 
 
 @app.get("/")
