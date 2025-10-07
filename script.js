@@ -88,12 +88,29 @@ form.addEventListener('submit', async (e) => {
   setLoading(true);
   try {
     if (mode === 'kie') {
-      const imageUrl = (imageUrlInput.value || '').trim();
+      let imageUrl = (imageUrlInput.value || '').trim();
       const model = (kieModelInput?.value || 'google/nano-banana').trim();
       const cbUrl = (kieCallbackInput?.value || '').trim();
       if (!prompt) {
         statusEl.textContent = 'Di mode KIE.ai, Prompt wajib diisi.';
         return;
+      }
+      // If user uploaded a file, upload to temp endpoint to get a public URL for KIE
+      if (!imageUrl && hasFile) {
+        try {
+          statusEl.textContent = 'Mengunggah gambar…';
+          const up = new FormData();
+          up.append('file', fileInput.files[0]);
+          const r = await fetch('/api/upload-temp-image', { method: 'POST', body: up });
+          if (!r.ok) throw new Error(`Upload gagal (${r.status})`);
+          const j = await r.json();
+          imageUrl = j.url;
+          logDebug('temp image url', imageUrl);
+        } catch (e) {
+          setLoading(false);
+          statusEl.textContent = `Gagal upload gambar: ${e.message || e}`;
+          return;
+        }
       }
       const payload = {
         model: model || 'google/nano-banana',

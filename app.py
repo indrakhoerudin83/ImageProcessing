@@ -3,13 +3,14 @@ import io
 import base64
 import asyncio
 import json
+import uuid
 from typing import Optional, List, Dict, Any
 
 from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 import httpx
@@ -543,6 +544,42 @@ async def kie_events(job_id: str):
 
     headers = {"Cache-Control": "no-cache", "Content-Type": "text/event-stream", "Connection": "keep-alive"}
     return StreamingResponse(event_stream(), headers=headers, media_type="text/event-stream")
+
+
+# ------------------------- Temp image upload/serve ---------------------------
+TEMP_UPLOADS: Dict[str, bytes] = {}
+
+
+@app.post("/api/upload-temp-image")
+async def upload_temp_image(file: UploadFile = File(...), request: Request = None):
+    if not file or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Uploaded file must be an image.")
+    try:
+        raw = await file.read()
+        img = _bytes_to_image(raw)
+        img = _safe_resize(img, max_size=1280)
+        png = _image_to_bytes(img, "PNG")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid image file.")
+    image_id = uuid.uuid4().hex
+    TEMP_UPLOADS[image_id] = png
+    # Build absolute URL
+    if request is None:
+        raise HTTPException(status_code=500, detail="Request unavailable")
+    hdr = request.headers
+    scheme = hdr.get("x-forwarded-proto") or request.url.scheme or "https"
+    host = hdr.get("x-forwarded-host") or hdr.get("host") or request.url.netloc
+    base = f"{scheme}://{host}"
+    url = f"{base}/uploads/{image_id}.png"
+    return {"url": url, "id": image_id}
+
+
+@app.get("/uploads/{image_id}.png")
+def get_temp_image(image_id: str):
+    data = TEMP_UPLOADS.get(image_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    return Response(content=data, media_type="image/png")
 
 
 if __name__ == "__main__":
