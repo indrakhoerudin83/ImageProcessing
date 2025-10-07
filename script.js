@@ -103,11 +103,47 @@ form.addEventListener('submit', async (e) => {
         return;
       }
       statusEl.textContent = `Task dibuat (${jobId}). Menunggu hasil…`;
-      // Poll backend result endpoint which is populated by webhook callback
+      // Prefer SSE for instant updates; fallback to polling
+      let settled = false;
+      let es;
+      try {
+        es = new EventSource(`/api/kie/events?job_id=${encodeURIComponent(jobId)}`);
+        es.onmessage = (evt) => {
+          if (settled) return;
+          try {
+            const data = JSON.parse(evt.data);
+            const payload = data?.payload;
+            const out = payload?.output || payload?.data?.output;
+            if (out?.image_url) {
+              outputImg.src = out.image_url;
+              outputImg.classList.remove('hidden');
+              statusEl.textContent = 'Selesai (SSE callback)';
+            } else if (out?.image_base64) {
+              outputImg.src = `data:image/png;base64,${out.image_base64}`;
+              outputImg.classList.remove('hidden');
+              statusEl.textContent = 'Selesai (SSE callback)';
+            } else {
+              statusEl.textContent = 'Task selesai tapi tidak ada gambar pada output.';
+            }
+            settled = true;
+            setLoading(false);
+            es && es.close();
+          } catch (err) {
+            // Ignore parse errors, fallback to polling if needed
+          }
+        };
+        es.onerror = () => {
+          // SSE may fail behind some proxies; we'll rely on polling below
+          es && es.close();
+        };
+      } catch {}
+
+      // Polling fallback with timeout
       const start = Date.now();
       const timeoutMs = 5 * 60 * 1000; // 5 menit
       const intervalMs = 2000;
       const timer = setInterval(async () => {
+        if (settled) { clearInterval(timer); return; }
         try {
           const r = await fetch(`/api/kie/result?job_id=${encodeURIComponent(jobId)}`);
           if (!r.ok) throw new Error(`Status error ${r.status}`);
@@ -126,7 +162,9 @@ form.addEventListener('submit', async (e) => {
             } else {
               statusEl.textContent = 'Task selesai tapi tidak ada gambar pada output.';
             }
+            settled = true;
             setLoading(false);
+            es && es.close();
           } else if (s.status === 'failed') {
             clearInterval(timer);
             setLoading(false);
@@ -137,12 +175,14 @@ form.addEventListener('submit', async (e) => {
           if (Date.now() - start > timeoutMs) {
             clearInterval(timer);
             setLoading(false);
-            statusEl.textContent = 'Polling timeout (callback belum diterima).';
+            statusEl.textContent = 'Timeout menunggu hasil.';
+            es && es.close();
           }
         } catch (e) {
           clearInterval(timer);
           setLoading(false);
           statusEl.textContent = `Error polling: ${e.message || e}`;
+          es && es.close();
         }
       }, intervalMs);
     } else {

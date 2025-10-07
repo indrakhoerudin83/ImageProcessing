@@ -1,13 +1,15 @@
 import os
 import io
 import base64
+import asyncio
+import json
 from typing import Optional, List, Dict, Any
 
 from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 import httpx
@@ -333,6 +335,8 @@ async def kie_create_task(body: KIECreateTaskRequest, request: Request):
 
 # In-memory store for callback results (for production, use Redis/DB)
 KIE_RESULTS: Dict[str, Any] = {}
+# Subscribers per job_id for SSE push
+KIE_SUBSCRIBERS: Dict[str, list[asyncio.Queue]] = {}
 
 
 def _extract_job_id(payload: Dict[str, Any]) -> Optional[str]:
@@ -371,6 +375,13 @@ async def kie_callback(request: Request, token: Optional[str] = Query(default=No
         raise HTTPException(status_code=400, detail="Missing job id in payload")
 
     KIE_RESULTS[job_id] = payload
+    # Notify SSE subscribers if any
+    queues = KIE_SUBSCRIBERS.get(job_id) or []
+    for q in list(queues):
+        try:
+            q.put_nowait(payload)
+        except Exception:
+            pass
     return {"ok": True, "job_id": job_id}
 
 
@@ -407,6 +418,42 @@ def kie_preview_callback(request: Request):
         q.setdefault("token", cb_token)
         auto_cb = urlunparse((pr.scheme, pr.netloc, pr.path, pr.params, urlencode(q), pr.fragment))
     return {"autoCallbackUrl": auto_cb}
+
+
+@app.get("/api/kie/events")
+async def kie_events(job_id: str):
+    """Server-Sent Events stream for a specific KIE job id. Sends result when available."""
+    q: asyncio.Queue = asyncio.Queue()
+    KIE_SUBSCRIBERS.setdefault(job_id, []).append(q)
+
+    async def event_stream():
+        try:
+            # If result already available, send immediately
+            existing = KIE_RESULTS.get(job_id)
+            if existing is not None:
+                data = json.dumps({"job_id": job_id, "payload": existing})
+                yield f"data: {data}\n\n"
+                return
+
+            while True:
+                try:
+                    item = await asyncio.wait_for(q.get(), timeout=25.0)
+                    data = json.dumps({"job_id": job_id, "payload": item})
+                    yield f"data: {data}\n\n"
+                    return  # close after first delivery
+                except asyncio.TimeoutError:
+                    # Keep-alive comment to prevent idle timeout on proxies
+                    yield ": keep-alive\n\n"
+        finally:
+            # Cleanup subscriber
+            subs = KIE_SUBSCRIBERS.get(job_id)
+            if subs and q in subs:
+                subs.remove(q)
+            if subs == []:
+                KIE_SUBSCRIBERS.pop(job_id, None)
+
+    headers = {"Cache-Control": "no-cache", "Content-Type": "text/event-stream", "Connection": "keep-alive"}
+    return StreamingResponse(event_stream(), headers=headers, media_type="text/event-stream")
 
 
 if __name__ == "__main__":
