@@ -15,6 +15,23 @@ const clearBtn = document.getElementById('clearBtn');
 const spinner = document.getElementById('spinner');
 const outputImg = document.getElementById('outputImg');
 const statusEl = document.getElementById('status');
+const debugToggle = document.getElementById('debugToggle');
+const debugLog = document.getElementById('debugLog');
+
+function logDebug(...args) {
+  try {
+    if (!debugToggle || !debugLog) return;
+    if (!debugToggle.checked) return;
+    const ts = new Date().toISOString();
+    const line = args.map(a => {
+      if (typeof a === 'string') return a;
+      try { return JSON.stringify(a); } catch { return String(a); }
+    }).join(' ');
+    debugLog.textContent += `\n[${ts}] ${line}`;
+    debugLog.style.display = '';
+    debugLog.scrollTop = debugLog.scrollHeight;
+  } catch {}
+}
 
 function setLoading(isLoading, msg = '') {
   spinner.classList.toggle('hidden', !isLoading);
@@ -39,6 +56,9 @@ function clearAll() {
 }
 
 clearBtn.addEventListener('click', () => clearAll());
+debugToggle?.addEventListener('change', () => {
+  debugLog.style.display = debugToggle.checked ? '' : 'none';
+});
 
 modeSelect.addEventListener('change', () => {
   const mode = modeSelect.value;
@@ -85,6 +105,7 @@ form.addEventListener('submit', async (e) => {
         },
         ...(cbUrl ? { callBackUrl: cbUrl } : {}),
       };
+      logDebug('create-task payload', payload);
       const resp = await fetch('/api/kie/create-task', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -96,8 +117,10 @@ form.addEventListener('submit', async (e) => {
         throw new Error(msg);
       }
       const result = await resp.json();
+      logDebug('create-task result', result);
       // Derive job id from typical fields (prefer KIE data.taskId)
       const jobId = result?.data?.taskId || result?.data?.id || result?.taskId || result?.id || result?.data?.recordId;
+      logDebug('derived jobId', jobId);
       if (!jobId) {
         statusEl.textContent = 'Task dibuat, namun jobId tidak ditemukan di respons.';
         return;
@@ -108,12 +131,14 @@ form.addEventListener('submit', async (e) => {
       let es;
       try {
         es = new EventSource(`/api/kie/events?job_id=${encodeURIComponent(jobId)}`);
+        es.onopen = () => logDebug('SSE opened');
         es.onmessage = (evt) => {
           if (settled) return;
           try {
             const data = JSON.parse(evt.data);
             const payload = data?.payload;
             const out = payload?.output || payload?.data?.output;
+            logDebug('SSE message', data);
             if (out?.image_url) {
               outputImg.src = out.image_url;
               outputImg.classList.remove('hidden');
@@ -128,13 +153,15 @@ form.addEventListener('submit', async (e) => {
             settled = true;
             setLoading(false);
             es && es.close();
+            logDebug('SSE closed (delivered)');
           } catch (err) {
             // Ignore parse errors, fallback to polling if needed
           }
         };
-        es.onerror = () => {
+        es.onerror = (e) => {
           // SSE may fail behind some proxies; we'll rely on polling below
           es && es.close();
+          logDebug('SSE error/closed', e);
         };
       } catch {}
 
@@ -148,6 +175,7 @@ form.addEventListener('submit', async (e) => {
           const r = await fetch(`/api/kie/result?job_id=${encodeURIComponent(jobId)}`);
           if (!r.ok) throw new Error(`Status error ${r.status}`);
           const s = await r.json();
+          logDebug('poll result', s);
           if (s.status === 'completed' || s.output) {
             clearInterval(timer);
             const out = s.output || s.raw?.output || s.raw?.data?.output;
@@ -165,10 +193,12 @@ form.addEventListener('submit', async (e) => {
             settled = true;
             setLoading(false);
             es && es.close();
+            logDebug('poll delivered, closing');
           } else if (s.status === 'failed') {
             clearInterval(timer);
             setLoading(false);
             statusEl.textContent = 'Task gagal.';
+            logDebug('poll status failed');
           } else {
             statusEl.textContent = `KIE.ai: ${s.status || 'pending'}…`;
           }
@@ -177,12 +207,14 @@ form.addEventListener('submit', async (e) => {
             setLoading(false);
             statusEl.textContent = 'Timeout menunggu hasil.';
             es && es.close();
+            logDebug('poll timeout');
           }
         } catch (e) {
           clearInterval(timer);
           setLoading(false);
           statusEl.textContent = `Error polling: ${e.message || e}`;
           es && es.close();
+          logDebug('poll error', e);
         }
       }, intervalMs);
     } else {
