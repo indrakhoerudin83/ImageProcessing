@@ -69,6 +69,43 @@ def health():
 
 
 # ----------------------------------------------------------------------------
+# Favicon generator/endpoint
+# ----------------------------------------------------------------------------
+def _generate_favicon_bytes() -> bytes:
+    """Generate a small in-memory ICO favicon."""
+    try:
+        # 32x32 icon with simple gradient and letters AI
+        size = (32, 32)
+        img = Image.new("RGBA", size, (24, 24, 28, 255))
+        draw = ImageDraw.Draw(img)
+        for y in range(0, 32, 4):
+            alpha = 90 - int(90 * (y / 32))
+            draw.rectangle([(0, y), (32, y + 2)], fill=(99, 102, 241, max(0, alpha)))
+        try:
+            font = ImageFont.truetype("Arial.ttf", 14)
+        except Exception:
+            font = ImageFont.load_default()
+        draw.text((6, 8), "AI", font=font, fill=(255, 255, 255, 230))
+        buf = io.BytesIO()
+        img.save(buf, format="ICO")
+        return buf.getvalue()
+    except Exception:
+        # Fallback to a plain PNG encoded as ICO if ICO not supported
+        img = Image.new("RGBA", (32, 32), (32, 32, 36, 255))
+        buf = io.BytesIO()
+        img.save(buf, format="ICO")
+        return buf.getvalue()
+
+
+_FAVICON_CACHE = _generate_favicon_bytes()
+
+
+@app.get("/favicon.ico")
+def favicon():
+    return StreamingResponse(io.BytesIO(_FAVICON_CACHE), media_type="image/x-icon")
+
+
+# ----------------------------------------------------------------------------
 # Utilities
 # ----------------------------------------------------------------------------
 def _image_to_bytes(img: Image.Image, format: str = "PNG") -> bytes:
