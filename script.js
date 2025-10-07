@@ -96,8 +96,8 @@ form.addEventListener('submit', async (e) => {
         throw new Error(msg);
       }
       const result = await resp.json();
-      // Derive job id from typical fields
-      const jobId = result.jobId || result.id || result.data?.id || result.taskId;
+      // Derive job id from typical fields (prefer KIE data.taskId)
+      const jobId = result?.data?.taskId || result?.data?.id || result?.taskId || result?.id || result?.data?.recordId;
       if (!jobId) {
         statusEl.textContent = 'Task dibuat, namun jobId tidak ditemukan di respons.';
         return;
