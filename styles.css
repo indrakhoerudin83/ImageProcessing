@@ -41,6 +41,14 @@ body {
 .app-header h1 { margin: .5rem 0 0; font-size: 1.75rem; }
 .subtitle { margin: .25rem 0 1rem; color: var(--muted); }
 
+/* Gradient text like hero headline */
+.gradient-text {
+  background: linear-gradient(90deg, var(--blue-500), var(--red-500));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
 main { display: grid; gap: 1rem; grid-template-columns: 1fr; }
 
 .tool-card, .preview-card {
@@ -75,8 +83,12 @@ main { display: grid; gap: 1rem; grid-template-columns: 1fr; }
   cursor: pointer;
 }
 .btn:hover { background: #ffffff; }
-.btn.primary { background: linear-gradient(90deg, var(--red-500), var(--red-400)); border: none; color: #ffffff; font-weight: 700; box-shadow: 0 8px 20px rgba(239, 68, 68, 0.25); }
-.btn.primary:hover { filter: brightness(1.05); }
+.btn.primary { background: linear-gradient(90deg, var(--red-500), var(--red-400)); border: none; color: #ffffff; font-weight: 700; box-shadow: 0 8px 20px rgba(239, 68, 68, 0.25); transition: transform .15s ease, box-shadow .15s ease, filter .15s ease; }
+.btn.primary:hover { filter: brightness(1.05); transform: translateY(-1px); box-shadow: 0 10px 24px rgba(239, 68, 68, 0.35); }
+
+/* Link styling to fit palette */
+a { color: var(--blue-500); text-decoration: none; }
+a:hover { color: var(--red-500); text-decoration: underline; text-underline-offset: 3px; }
 
 .preview-header { display: flex; align-items: center; justify-content: space-between; }
 .status { color: var(--muted); font-size: .9rem; }
