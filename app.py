@@ -41,6 +41,24 @@ def root():
     return FileResponse(INDEX_FILE)
 
 
+@app.get("/styles.css")
+def styles_css():
+    """Serve the root-level stylesheet."""
+    path = os.path.join(PROJECT_ROOT, "styles.css")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="styles.css not found")
+    return FileResponse(path, media_type="text/css")
+
+
+@app.get("/script.js")
+def script_js():
+    """Serve the root-level JavaScript."""
+    path = os.path.join(PROJECT_ROOT, "script.js")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="script.js not found")
+    return FileResponse(path, media_type="application/javascript")
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
