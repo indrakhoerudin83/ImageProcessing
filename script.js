@@ -45,6 +45,9 @@ function clearAll() {
   outputImg.src = '';
   outputImg.classList.add('hidden');
   statusEl.textContent = '';
+  // Ensure spinner is fully stopped and hidden when clearing
+  spinner.classList.add('hidden');
+  spinner.classList.remove('running');
 }
 
 clearBtn.addEventListener('click', () => clearAll());
@@ -61,17 +64,18 @@ form.addEventListener('submit', async (e) => {
   const hasFile = fileInput.files && fileInput.files.length > 0;
   const prompt = (promptInput.value || '').trim();
 
-  setLoading(true);
   try {
     let imageUrl = '';
     if (!prompt) {
-      statusEl.textContent = 'Prompt wajib diisi.';
+      statusEl.textContent = 'Prompt is required.';
       return;
     }
+    // Begin processing after validation passes
+    setLoading(true);
     // If user uploaded a file, upload to temp endpoint to get a public URL for KIE
     if (hasFile) {
       try {
-        statusEl.textContent = 'Mengunggah gambar…';
+  statusEl.textContent = 'Uploading image…';
         const up = new FormData();
         up.append('file', fileInput.files[0]);
         const r = await fetch('/api/upload-temp-image', { method: 'POST', body: up });
@@ -112,7 +116,8 @@ form.addEventListener('submit', async (e) => {
     const jobId = result?.data?.taskId || result?.data?.id || result?.taskId || result?.id || result?.data?.recordId;
     logDebug('derived jobId', jobId);
     if (!jobId) {
-  statusEl.textContent = 'Task created, but jobId was not found in the response.';
+      statusEl.textContent = 'Task created, but jobId was not found in the response.';
+      setLoading(false);
       return;
     }
   statusEl.textContent = `Task created (${jobId}). Preparing SSE connection…`;
@@ -146,7 +151,7 @@ form.addEventListener('submit', async (e) => {
           setLoading(false);
           es && es.close();
           logDebug('SSE closed (delivered)');
-          statusEl.textContent = statusEl.textContent || 'Selesai (SSE callback)';
+          statusEl.textContent = statusEl.textContent || 'Done (SSE callback)';
         } catch (err) {
           // Ignore parse errors, fallback to polling if needed
         }
