@@ -255,13 +255,13 @@ async def process(
 # ----------------------------- KIE.ai Integration ----------------------------
 class KIEInput(BaseModel):
     prompt: str
-    image_urls: List[str]
+    image_urls: Optional[List[str]] = None
     output_format: str = "png"
     image_size: str = "1:1"
 
 
 class KIECreateTaskRequest(BaseModel):
-    model: str = "google/nano-banana-edit"
+    model: str = "google/nano-banana"
     callBackUrl: Optional[str] = None
     input: KIEInput
 
@@ -286,7 +286,11 @@ async def kie_create_task(body: KIECreateTaskRequest):
     cb_url_env = os.getenv("KIE_CALLBACK_URL")
     cb_token = os.getenv("KIE_CALLBACK_TOKEN")
 
-    payload = body.model_dump()
+    payload = body.model_dump(exclude_none=True)
+    # Remove empty image_urls to comply with pure text-to-image
+    if "input" in payload and isinstance(payload["input"], dict):
+        if not payload["input"].get("image_urls"):
+            payload["input"].pop("image_urls", None)
     if not payload.get("callBackUrl") and cb_url_env:
         payload["callBackUrl"] = cb_url_env if not cb_token else f"{cb_url_env}?token={cb_token}"
 

@@ -50,16 +50,16 @@ form.addEventListener('submit', async (e) => {
   try {
     if (mode === 'kie') {
       const imageUrl = (imageUrlInput.value || '').trim();
-      if (!prompt || !imageUrl) {
-        statusEl.textContent = 'Di mode KIE.ai, isi Prompt dan Image URL.';
+      if (!prompt) {
+        statusEl.textContent = 'Di mode KIE.ai, Prompt wajib diisi.';
         return;
       }
       const payload = {
-        model: 'google/nano-banana-edit',
+        model: 'google/nano-banana',
         callBackUrl: null,
         input: {
           prompt,
-          image_urls: [imageUrl],
+          ...(imageUrl ? { image_urls: [imageUrl] } : {}),
           output_format: 'png',
           image_size: '1:1',
         },

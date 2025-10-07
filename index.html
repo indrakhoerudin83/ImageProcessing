@@ -23,7 +23,7 @@
               <option value="local" selected>Local/External (default)</option>
               <option value="kie">KIE.ai (createTask)</option>
             </select>
-            <small>Pilih KIE.ai untuk memakai API createTask.</small>
+            <small>Pilih KIE.ai untuk createTask (mendukung text-to-image).</small>
           </div>
           <div class="form-group">
             <label for="file">Gambar (opsional)</label>
@@ -37,9 +37,9 @@
           </div>
 
           <div class="form-group" id="kieUrlGroup" style="display:none">
-            <label for="imageUrl">Image URL (KIE.ai)</label>
-            <input id="imageUrl" type="url" placeholder="https://example.com/image.png" />
-            <small>Di mode KIE.ai, gunakan URL gambar publik.</small>
+            <label for="imageUrl">Image URL (opsional, KIE.ai)</label>
+            <input id="imageUrl" type="url" placeholder="(Opsional) https://example.com/image.png" />
+            <small>Bisa dikosongkan untuk text-to-image.</small>
           </div>
 
           <div class="actions">
