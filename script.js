@@ -3,13 +3,7 @@ const form = document.getElementById('aiForm');
 const modeSelect = document.getElementById('mode');
 const fileInput = document.getElementById('file');
 const promptInput = document.getElementById('prompt');
-const kieUrlGroup = document.getElementById('kieUrlGroup');
-const imageUrlInput = document.getElementById('imageUrl');
-const kieModelGroup = document.getElementById('kieModelGroup');
-const kieModelInput = document.getElementById('kieModel');
-const kieCallbackGroup = document.getElementById('kieCallbackGroup');
-const kieCallbackInput = document.getElementById('kieCallback');
-const kieCallbackHint = document.getElementById('kieCallbackHint');
+// Removed optional KIE fields (imageUrl, model, callback) from UI
 const submitBtn = document.getElementById('submitBtn');
 const clearBtn = document.getElementById('clearBtn');
 const spinner = document.getElementById('spinner');
@@ -47,9 +41,6 @@ function showImageFromBase64(b64) {
 function clearAll() {
   fileInput.value = '';
   promptInput.value = '';
-  imageUrlInput && (imageUrlInput.value = '');
-  kieModelInput && (kieModelInput.value = 'google/nano-banana');
-  kieCallbackInput && (kieCallbackInput.value = '');
   outputImg.src = '';
   outputImg.classList.add('hidden');
   statusEl.textContent = '';
@@ -60,23 +51,7 @@ debugToggle?.addEventListener('change', () => {
   debugLog.style.display = debugToggle.checked ? '' : 'none';
 });
 
-modeSelect.addEventListener('change', () => {
-  const mode = modeSelect.value;
-  const isKie = mode === 'kie';
-  kieUrlGroup.style.display = isKie ? '' : 'none';
-  kieModelGroup.style.display = isKie ? '' : 'none';
-  kieCallbackGroup.style.display = isKie ? '' : 'none';
-  if (isKie) {
-    // Ask backend what callback URL will be used automatically
-    fetch('/api/kie/preview-callback').then(async (r) => {
-      if (!r.ok) return;
-      const j = await r.json();
-      if (j.autoCallbackUrl) {
-        kieCallbackHint.textContent = `Jika dikosongkan, server akan mengisi otomatis: ${j.autoCallbackUrl}`;
-      }
-    }).catch(() => {});
-  }
-});
+// No dynamic KIE fields to toggle anymore
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -88,15 +63,13 @@ form.addEventListener('submit', async (e) => {
   setLoading(true);
   try {
     if (mode === 'kie') {
-      let imageUrl = (imageUrlInput.value || '').trim();
-      const model = (kieModelInput?.value || 'google/nano-banana').trim();
-      const cbUrl = (kieCallbackInput?.value || '').trim();
+      let imageUrl = '';
       if (!prompt) {
         statusEl.textContent = 'Di mode KIE.ai, Prompt wajib diisi.';
         return;
       }
       // If user uploaded a file, upload to temp endpoint to get a public URL for KIE
-      if (!imageUrl && hasFile) {
+      if (hasFile) {
         try {
           statusEl.textContent = 'Mengunggah gambar…';
           const up = new FormData();
@@ -113,14 +86,14 @@ form.addEventListener('submit', async (e) => {
         }
       }
       const payload = {
-        model: model || 'google/nano-banana',
+        model: 'google/nano-banana',
         input: {
           prompt,
           ...(imageUrl ? { image_urls: [imageUrl] } : {}),
           output_format: 'png',
           image_size: '1:1',
         },
-        ...(cbUrl ? { callBackUrl: cbUrl } : {}),
+        // callBackUrl omitted; server auto-injects
       };
       logDebug('create-task payload', payload);
       const resp = await fetch('/api/kie/create-task', {
