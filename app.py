@@ -1,9 +1,9 @@
 import os
 import io
 import base64
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -264,7 +264,13 @@ async def kie_create_task(body: KIECreateTaskRequest):
         "Authorization": f"Bearer {kie_api_key}",
     }
 
+    # Auto-inject callback URL if configured and not provided in request
+    cb_url_env = os.getenv("KIE_CALLBACK_URL")
+    cb_token = os.getenv("KIE_CALLBACK_TOKEN")
+
     payload = body.model_dump()
+    if not payload.get("callBackUrl") and cb_url_env:
+        payload["callBackUrl"] = cb_url_env if not cb_token else f"{cb_url_env}?token={cb_token}"
 
     timeout = httpx.Timeout(30.0, read=120.0)
     async with httpx.AsyncClient(timeout=timeout) as client:
@@ -282,6 +288,61 @@ async def kie_create_task(body: KIECreateTaskRequest):
             raise HTTPException(status_code=e.response.status_code, detail=msg)
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+
+
+# In-memory store for callback results (for production, use Redis/DB)
+KIE_RESULTS: Dict[str, Any] = {}
+
+
+def _extract_job_id(payload: Dict[str, Any]) -> Optional[str]:
+    # Try common keys
+    for key in ("id", "jobId", "job_id", "taskId", "task_id"):
+        if key in payload and isinstance(payload[key], (str, int)):
+            return str(payload[key])
+    # Try nested `data` object
+    data = payload.get("data")
+    if isinstance(data, dict):
+        for key in ("id", "jobId", "job_id", "taskId", "task_id"):
+            if key in data and isinstance(data[key], (str, int)):
+                return str(data[key])
+    return None
+
+
+@app.post("/api/kie/callback")
+async def kie_callback(request: Request, token: Optional[str] = Query(default=None)):
+    """
+    Webhook endpoint to receive KIE.ai task results.
+    Optional protection via KIE_CALLBACK_TOKEN env var.
+    """
+    expected = os.getenv("KIE_CALLBACK_TOKEN")
+    if expected and token != expected:
+        raise HTTPException(status_code=401, detail="Unauthorized callback")
+
+    try:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            raise ValueError("Invalid payload")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
+
+    job_id = _extract_job_id(payload)
+    if not job_id:
+        raise HTTPException(status_code=400, detail="Missing job id in payload")
+
+    KIE_RESULTS[job_id] = payload
+    return {"ok": True, "job_id": job_id}
+
+
+@app.get("/api/kie/result")
+def kie_result(job_id: str):
+    """Return stored KIE callback result if present; otherwise pending."""
+    data = KIE_RESULTS.get(job_id)
+    if data is None:
+        return {"status": "pending", "job_id": job_id}
+    # Try to surface a normalized view
+    status = data.get("status") or data.get("state") or data.get("data", {}).get("status")
+    output = data.get("output") or data.get("data", {}).get("output")
+    return {"status": status or "completed", "job_id": job_id, "raw": data, "output": output}
 
 
 if __name__ == "__main__":

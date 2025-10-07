@@ -75,9 +75,55 @@ form.addEventListener('submit', async (e) => {
         throw new Error(msg);
       }
       const result = await resp.json();
-      // KIE.ai likely returns a job/task status; just show status text
-      statusEl.textContent = `KIE.ai task created: ${result?.status || 'OK'}`;
-      // No direct image to display at this stage unless API returns one
+      // Derive job id from typical fields
+      const jobId = result.jobId || result.id || result.data?.id || result.taskId;
+      if (!jobId) {
+        statusEl.textContent = 'Task dibuat, namun jobId tidak ditemukan di respons.';
+        return;
+      }
+      statusEl.textContent = `Task dibuat (${jobId}). Menunggu hasil…`;
+      // Poll backend result endpoint which is populated by webhook callback
+      const start = Date.now();
+      const timeoutMs = 5 * 60 * 1000; // 5 menit
+      const intervalMs = 2000;
+      const timer = setInterval(async () => {
+        try {
+          const r = await fetch(`/api/kie/result?job_id=${encodeURIComponent(jobId)}`);
+          if (!r.ok) throw new Error(`Status error ${r.status}`);
+          const s = await r.json();
+          if (s.status === 'completed' || s.output) {
+            clearInterval(timer);
+            const out = s.output || s.raw?.output || s.raw?.data?.output;
+            if (out?.image_url) {
+              outputImg.src = out.image_url;
+              outputImg.classList.remove('hidden');
+              statusEl.textContent = 'Selesai (callback)';
+            } else if (out?.image_base64) {
+              outputImg.src = `data:image/png;base64,${out.image_base64}`;
+              outputImg.classList.remove('hidden');
+              statusEl.textContent = 'Selesai (callback)';
+            } else {
+              statusEl.textContent = 'Task selesai tapi tidak ada gambar pada output.';
+            }
+            setLoading(false);
+          } else if (s.status === 'failed') {
+            clearInterval(timer);
+            setLoading(false);
+            statusEl.textContent = 'Task gagal.';
+          } else {
+            statusEl.textContent = `KIE.ai: ${s.status || 'pending'}…`;
+          }
+          if (Date.now() - start > timeoutMs) {
+            clearInterval(timer);
+            setLoading(false);
+            statusEl.textContent = 'Polling timeout (callback belum diterima).';
+          }
+        } catch (e) {
+          clearInterval(timer);
+          setLoading(false);
+          statusEl.textContent = `Error polling: ${e.message || e}`;
+        }
+      }, intervalMs);
     } else {
       if (!hasFile && !prompt) {
         statusEl.textContent = 'Mohon unggah gambar atau isi teks perintah.';
