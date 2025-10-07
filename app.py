@@ -3,6 +3,8 @@ import io
 import base64
 from typing import Optional, List, Dict, Any
 
+from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
+
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -267,7 +269,7 @@ class KIECreateTaskRequest(BaseModel):
 
 
 @app.post("/api/kie/create-task")
-async def kie_create_task(body: KIECreateTaskRequest):
+async def kie_create_task(body: KIECreateTaskRequest, request: Request):
     """
     Proxy endpoint to create a task in KIE.ai.
     Requires env KIE_API_KEY. Uses fixed endpoint: https://api.kie.ai/api/v1/jobs/createTask
@@ -291,8 +293,25 @@ async def kie_create_task(body: KIECreateTaskRequest):
     if "input" in payload and isinstance(payload["input"], dict):
         if not payload["input"].get("image_urls"):
             payload["input"].pop("image_urls", None)
-    if not payload.get("callBackUrl") and cb_url_env:
-        payload["callBackUrl"] = cb_url_env if not cb_token else f"{cb_url_env}?token={cb_token}"
+    if not payload.get("callBackUrl"):
+        cb_url: Optional[str] = None
+        if cb_url_env:
+            cb_url = cb_url_env
+        else:
+            # Derive from request headers when env not set
+            hdr = request.headers
+            scheme = hdr.get("x-forwarded-proto") or request.url.scheme or "https"
+            host = hdr.get("x-forwarded-host") or hdr.get("host") or request.url.netloc
+            if host:
+                cb_url = f"{scheme}://{host}/api/kie/callback"
+        if cb_url:
+            # Append token safely if present
+            if cb_token:
+                pr = urlparse(cb_url)
+                q = dict(parse_qsl(pr.query))
+                q.setdefault("token", cb_token)
+                cb_url = urlunparse((pr.scheme, pr.netloc, pr.path, pr.params, urlencode(q), pr.fragment))
+            payload["callBackUrl"] = cb_url
 
     timeout = httpx.Timeout(30.0, read=120.0)
     async with httpx.AsyncClient(timeout=timeout) as client:
