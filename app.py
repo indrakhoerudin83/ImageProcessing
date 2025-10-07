@@ -38,12 +38,17 @@ app.add_middleware(
 
 PROJECT_ROOT = os.path.dirname(__file__)
 INDEX_FILE = os.path.join(PROJECT_ROOT, "index.html")
+STATIC_DIR = os.path.join(PROJECT_ROOT, "static")
 
 
 @app.get("/")
 def root():
     """Serve the single-page app."""
     return FileResponse(INDEX_FILE)
+
+# Serve /static for user-provided assets (e.g., logo)
+if os.path.isdir(STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.get("/styles.css")
@@ -104,6 +109,59 @@ _FAVICON_CACHE = _generate_favicon_bytes()
 @app.get("/favicon.ico")
 def favicon():
     return StreamingResponse(io.BytesIO(_FAVICON_CACHE), media_type="image/x-icon")
+
+
+@app.get("/logo.png")
+def site_logo():
+    """Serve the site logo if present in ./static/logo.(png|jpg|jpeg|svg), else a generated placeholder.
+    Preferred path: ./static/logo.png
+    """
+    # Preferred order: png, jpg, jpeg, svg
+    candidates = [
+        os.path.join(STATIC_DIR, "logo.png"),
+        os.path.join(STATIC_DIR, "logo.jpg"),
+        os.path.join(STATIC_DIR, "logo.jpeg"),
+        os.path.join(STATIC_DIR, "logo.svg"),
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            if path.endswith(".svg"):
+                return FileResponse(path, media_type="image/svg+xml")
+            # Infer media type for png/jpg/jpeg
+            mt = "image/png" if path.endswith(".png") else "image/jpeg"
+            return FileResponse(path, media_type=mt)
+
+    # Fallback placeholder (a simple PU monogram in brand colors)
+    try:
+        size = 256
+        img = Image.new("RGBA", (size, size), (255, 255, 255, 0))
+        draw = ImageDraw.Draw(img)
+        # White card with soft shadow
+        bg = Image.new("RGBA", (size, size), (255, 255, 255, 255))
+        shadow = Image.new("RGBA", (size+24, size+24), (0, 0, 0, 0))
+        sdraw = ImageDraw.Draw(shadow)
+        sdraw.ellipse((12, 12, size+12, size+12), fill=(0, 0, 0, 40))
+        # Paste shadow and bg (centered)
+        canvas = Image.new("RGBA", (size+24, size+24), (0, 0, 0, 0))
+        canvas.alpha_composite(shadow)
+        canvas.alpha_composite(bg, (12, 12))
+        # Red border
+        draw = ImageDraw.Draw(canvas)
+        draw.ellipse((18, 18, size+6, size+6), outline=(255, 75, 75, 255), width=10)
+        # Monogram
+        try:
+            font = ImageFont.truetype("Arial.ttf", 108)
+        except Exception:
+            font = ImageFont.load_default()
+        tw, th = draw.textlength("PU", font=font), 108
+        draw.text((canvas.width/2 - tw/2, canvas.height/2 - th/2), "PU", font=font, fill=(59, 91, 255, 255))
+        out = io.BytesIO()
+        canvas.save(out, format="PNG")
+        out.seek(0)
+        return StreamingResponse(out, media_type="image/png")
+    except Exception:
+        # Minimal transparent pixel fallback
+        return Response(content=b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0bIDATx\x9cc``\x00\x00\x00\x02\x00\x01\xe2!\xbc3\x00\x00\x00\x00IEND\xaeB`\x82", media_type="image/png")
 
 
 # ----------------------------------------------------------------------------

@@ -38,10 +38,16 @@ body {
 
 .app-header {
   border-bottom: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(106,128,255,0.18), rgba(255,106,106,0.10) 70%, rgba(255,255,255,0) 90%);
+  background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 18%, transparent), color-mix(in oklab, var(--accent-2) 10%, transparent) 70%, rgba(255,255,255,0) 90%);
 }
-.app-header h1 { margin: .5rem 0 0; font-size: 1.75rem; }
-.subtitle { margin: .25rem 0 1rem; color: var(--muted); }
+.header-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.brand { display: flex; align-items: center; gap: .75rem; min-height: 56px; }
+.brand-logo { width: 44px; height: 44px; object-fit: contain; border-radius: 10px; background: #fff; border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(2,6,23,0.06); }
+.brand-text h1 { margin: .25rem 0 0; font-size: 1.6rem; }
+.subtitle { margin: .15rem 0 0; color: var(--muted); font-size: .95rem; }
+.nav-actions { display: flex; align-items: center; gap: 1rem; }
+.nav-actions a { font-weight: 600; padding: .4rem .6rem; border-radius: 8px; }
+.nav-actions a:hover { background: color-mix(in oklab, var(--accent), transparent 88%); text-decoration: none; }
 
 /* Gradient text like hero headline */
 .gradient-text {
@@ -61,7 +67,11 @@ main { display: grid; gap: 1rem; grid-template-columns: 1fr; }
   padding: 1rem;
   box-shadow: 0 10px 24px rgba(2,6,23,0.08);
   backdrop-filter: blur(4px);
+  transition: box-shadow .25s ease, transform .25s ease, border-color .25s ease;
 }
+.tool-card:hover, .preview-card:hover { box-shadow: 0 14px 30px rgba(2,6,23,0.1); transform: translateY(-1px); border-color: color-mix(in oklab, var(--accent), transparent 70%); }
+
+.preview-header h2 { margin: 0; }
 
 .form-grid { display: grid; gap: 1rem; }
 .form-group label { display: block; font-weight: 600; margin-bottom: .5rem; }

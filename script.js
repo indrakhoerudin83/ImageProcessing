@@ -11,6 +11,8 @@ const statusEl = document.getElementById('status');
 const debugToggle = document.getElementById('debugToggle');
 const debugLog = document.getElementById('debugLog');
 
+// Feature flag: keep original palette by default; set to true to auto-match palette from image
+const ENABLE_DYNAMIC_PALETTE = false;
 // Small utility to update CSS vars globally
 const setVar = (name, value) => document.documentElement.style.setProperty(name, value);
 
@@ -116,8 +118,10 @@ form.addEventListener('submit', async (e) => {
         const j = await r.json();
         imageUrl = j.url;
         logDebug('temp image url', imageUrl);
-    // Apply palette from the uploaded local image as early feedback
-    await applyPaletteFromFile(fileInput.files[0]);
+        if (ENABLE_DYNAMIC_PALETTE) {
+          // Apply palette from the uploaded local image as early feedback
+          await applyPaletteFromFile(fileInput.files[0]);
+        }
       } catch (e) {
         setLoading(false);
   updateStatus(`Image upload failed: ${e.message || e}`);
@@ -175,16 +179,20 @@ form.addEventListener('submit', async (e) => {
               updateStatus('Done (SSE callback)');
             spinner.classList.remove('running');
             appearImage();
-            // Derive palette from the resulting image URL
-            derivePaletteFromImageURL(out.image_url);
+            if (ENABLE_DYNAMIC_PALETTE) {
+              // Derive palette from the resulting image URL
+              derivePaletteFromImageURL(out.image_url);
+            }
           } else if (out?.image_base64) {
             outputImg.src = `data:image/png;base64,${out.image_base64}`;
             outputImg.classList.remove('hidden');
               updateStatus('Done (SSE callback)');
             spinner.classList.remove('running');
             appearImage();
-            // Base64 source, still can sample via an Image element
-            derivePaletteFromImageURL(outputImg.src);
+            if (ENABLE_DYNAMIC_PALETTE) {
+              // Base64 source, still can sample via an Image element
+              derivePaletteFromImageURL(outputImg.src);
+            }
           } else {
               updateStatus('Task finished but no image found in output.');
           }
@@ -227,14 +235,14 @@ form.addEventListener('submit', async (e) => {
               updateStatus('Done (callback)');
               spinner.classList.remove('running');
               appearImage();
-              derivePaletteFromImageURL(out.image_url);
+              if (ENABLE_DYNAMIC_PALETTE) derivePaletteFromImageURL(out.image_url);
           } else if (out?.image_base64) {
             outputImg.src = `data:image/png;base64,${out.image_base64}`;
             outputImg.classList.remove('hidden');
               updateStatus('Done (callback)');
               spinner.classList.remove('running');
               appearImage();
-              derivePaletteFromImageURL(outputImg.src);
+              if (ENABLE_DYNAMIC_PALETTE) derivePaletteFromImageURL(outputImg.src);
           } else {
               updateStatus('Task finished but no image found in output.');
           }
