@@ -258,7 +258,7 @@ async def process(
 class KIEInput(BaseModel):
     prompt: str
     image_urls: Optional[List[str]] = None
-    output_format: str = "png"
+    output_format: str = "png"  
     image_size: str = "1:1"
 
 
@@ -384,6 +384,29 @@ def kie_result(job_id: str):
     status = data.get("status") or data.get("state") or data.get("data", {}).get("status")
     output = data.get("output") or data.get("data", {}).get("output")
     return {"status": status or "completed", "job_id": job_id, "raw": data, "output": output}
+
+
+@app.get("/api/kie/preview-callback")
+def kie_preview_callback(request: Request):
+    """Return the callback URL that would be auto-derived on the server if not provided."""
+    cb_url_env = os.getenv("KIE_CALLBACK_URL")
+    cb_token = os.getenv("KIE_CALLBACK_TOKEN")
+
+    auto_cb = None
+    if cb_url_env:
+        auto_cb = cb_url_env
+    else:
+        hdr = request.headers
+        scheme = hdr.get("x-forwarded-proto") or request.url.scheme or "https"
+        host = hdr.get("x-forwarded-host") or hdr.get("host") or request.url.netloc
+        if host:
+            auto_cb = f"{scheme}://{host}/api/kie/callback"
+    if auto_cb and cb_token:
+        pr = urlparse(auto_cb)
+        q = dict(parse_qsl(pr.query))
+        q.setdefault("token", cb_token)
+        auto_cb = urlunparse((pr.scheme, pr.netloc, pr.path, pr.params, urlencode(q), pr.fragment))
+    return {"autoCallbackUrl": auto_cb}
 
 
 if __name__ == "__main__":
