@@ -34,7 +34,12 @@ body {
   color: var(--text);
 }
 
-.container { max-width: 1024px; margin: 0 auto; padding: 1rem; }
+.container {
+  /* Wider layout but always leave gutters on both sides */
+  width: min(1280px, 100% - clamp(32px, 6vw, 96px));
+  margin: 0 auto;
+  padding: clamp(12px, 2vw, 24px);
+}
 
 .app-header {
   border-bottom: 1px solid var(--border);
@@ -58,7 +63,7 @@ body {
   animation: titleShimmer 6s ease-in-out infinite;
 }
 
-main { display: grid; gap: 1rem; grid-template-columns: 1fr; }
+main { display: grid; gap: clamp(1rem, 2.5vw, 1.5rem); grid-template-columns: 1fr; }
 
 .tool-card, .preview-card {
   background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(255,255,255,0.75)), var(--panel);
