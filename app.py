@@ -41,6 +41,14 @@ INDEX_FILE = os.path.join(PROJECT_ROOT, "index.html")
 STATIC_DIR = os.path.join(PROJECT_ROOT, "static")
 
 
+def preferred_index(ext: str) -> int:
+    order = [".png", ".jpg", ".jpeg", ".svg"]
+    try:
+        return order.index(ext)
+    except ValueError:
+        return 99
+
+
 @app.get("/")
 def root():
     """Serve the single-page app."""
@@ -116,20 +124,43 @@ def site_logo():
     """Serve the site logo if present in ./static/logo.(png|jpg|jpeg|svg), else a generated placeholder.
     Preferred path: ./static/logo.png
     """
-    # Preferred order: png, jpg, jpeg, svg
+    # Preferred order: png, jpg, jpeg, svg (case-insensitive)
+    preferred = (".png", ".jpg", ".jpeg", ".svg")
+    # Exact matches first
     candidates = [
         os.path.join(STATIC_DIR, "logo.png"),
         os.path.join(STATIC_DIR, "logo.jpg"),
         os.path.join(STATIC_DIR, "logo.jpeg"),
         os.path.join(STATIC_DIR, "logo.svg"),
+        os.path.join(STATIC_DIR, "Logo.png"),
+        os.path.join(STATIC_DIR, "Logo.jpg"),
+        os.path.join(STATIC_DIR, "Logo.jpeg"),
+        os.path.join(STATIC_DIR, "Logo.svg"),
     ]
     for path in candidates:
         if os.path.exists(path):
-            if path.endswith(".svg"):
+            if path.lower().endswith(".svg"):
                 return FileResponse(path, media_type="image/svg+xml")
-            # Infer media type for png/jpg/jpeg
-            mt = "image/png" if path.endswith(".png") else "image/jpeg"
+            mt = "image/png" if path.lower().endswith(".png") else "image/jpeg"
             return FileResponse(path, media_type=mt)
+
+    # If no exact match, search any image in /static, preferring filenames containing 'logo'
+    try:
+        if os.path.isdir(STATIC_DIR):
+            files = [f for f in os.listdir(STATIC_DIR) if os.path.isfile(os.path.join(STATIC_DIR, f))]
+            # Filter to image extensions
+            imgs = [f for f in files if os.path.splitext(f)[1].lower() in preferred]
+            if imgs:
+                # Prefer names containing 'logo' (case-insensitive)
+                imgs.sort(key=lambda n: ("logo" not in n.lower(), preferred_index(os.path.splitext(n)[1].lower())))
+                sel = os.path.join(STATIC_DIR, imgs[0])
+                ext = os.path.splitext(sel)[1].lower()
+                if ext == ".svg":
+                    return FileResponse(sel, media_type="image/svg+xml")
+                mt = "image/png" if ext == ".png" else "image/jpeg"
+                return FileResponse(sel, media_type=mt)
+    except Exception:
+        pass
 
     # Fallback placeholder (a simple PU monogram in brand colors)
     try:

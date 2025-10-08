@@ -1,3 +1,14 @@
+const requiredHint = document.getElementById('requiredHint');
+
+const beforeImg = document.getElementById('beforeImg');
+const compareSlider = document.getElementById('compareSlider');
+const compareDivider = document.getElementById('compareDivider');
+const resultActions = document.getElementById('resultActions');
+const downloadBtn = document.getElementById('downloadBtn');
+const openBtn = document.getElementById('openBtn');
+const copyUrlBtn = document.getElementById('copyUrlBtn');
+const stickyActions = document.getElementById('stickyActions');
+const stickySubmit = document.getElementById('stickySubmit');
 // Handle form submission and integrate with backend API
 const form = document.getElementById('aiForm');
 const fileInput = document.getElementById('file');
@@ -10,6 +21,40 @@ const outputImg = document.getElementById('outputImg');
 const statusEl = document.getElementById('status');
 const debugToggle = document.getElementById('debugToggle');
 const debugLog = document.getElementById('debugLog');
+// Button animation helpers
+function setProcessingUI(isProcessing) {
+  submitBtn.classList.toggle('processing', isProcessing);
+  submitBtn.disabled = isProcessing;
+  clearBtn.disabled = isProcessing;
+  
+  // Update button text
+  const btnText = submitBtn.querySelector('.btn-text');
+  if (btnText) {
+    btnText.textContent = isProcessing ? 'Generating...' : 'Generate';
+  }
+}
+
+function shake(el) {
+  if (!el) return;
+  el.classList.remove('shake');
+  void el.offsetWidth; // restart animation
+  el.classList.add('shake');
+  setTimeout(() => el.classList.remove('shake'), 500);
+}
+// Dropzone + prompt enhancements
+const dropzone = document.getElementById('dropzone');
+const fileInfo = document.getElementById('fileInfo');
+const dzPreview = document.getElementById('dzPreview');
+const promptCounter = document.getElementById('promptCounter');
+// New UI elements (no theme toggle, no modal)
+const progressBar = document.getElementById('progressBar');
+const toastContainer = document.getElementById('toastContainer');
+const dzThumbs = document.getElementById('dzThumbs');
+
+// Progress bar controls
+function progressStart() { if (progressBar) { progressBar.classList.remove('hidden','done','near-done'); progressBar.classList.add('active'); } }
+function progressNearDone() { if (progressBar) { progressBar.classList.add('near-done'); } }
+function progressDone() { if (progressBar) { progressBar.classList.remove('active','near-done'); progressBar.classList.add('done'); setTimeout(() => progressBar.classList.add('hidden'), 300); } }
 
 // Feature flag: keep original palette by default; set to true to auto-match palette from image
 const ENABLE_DYNAMIC_PALETTE = false;
@@ -22,7 +67,155 @@ window.requestAnimationFrame(() => {
     el.classList.add('reveal');
     setTimeout(() => el.classList.add('show'), 50 + i * 90);
   });
+  // Ensure header logo loads even if the file uses a different extension
+  const logo = document.querySelector('.brand-logo');
+  if (logo) {
+    const tryNext = (srcs, idx=0) => {
+      if (idx >= srcs.length) return;
+      logo.onerror = () => tryNext(srcs, idx+1);
+      logo.src = srcs[idx];
+    };
+    // Start from /static/logo.png then fallback to jpg/jpeg/svg
+    const base = '/static/logo';
+    tryNext([`${base}.png`, `${base}.jpg`, `${base}.jpeg`, `${base}.svg`]);
+  }
 });
+
+// --- Dropzone interactions ---
+function handleFiles(files) {
+  if (!files || !files.length) return;
+  const f = files[0];
+  
+  // Validate file type and size
+  const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  
+  if (!validTypes.includes(f.type)) {
+    toast('Please select a PNG, JPG, or WebP image', 'error');
+    shake(dropzone);
+    return;
+  }
+  
+  if (f.size > maxSize) {
+    toast('Image must be smaller than 10MB', 'error');
+    shake(dropzone);
+    return;
+  }
+  
+  fileInput.files = files;
+  
+  // Enhanced file info with size and resolution
+  const sizeKB = Math.ceil((f.size || 0) / 1024);
+  const sizeText = sizeKB > 1024 ? `${(sizeKB/1024).toFixed(1)}MB` : `${sizeKB}KB`;
+  
+  // Get image dimensions
+  const img = new Image();
+  img.onload = () => {
+    fileInfo.textContent = `${f.name} • ${img.width}×${img.height} • ${sizeText}`;
+    fileInfo.classList.add('has-file');
+    toast('Image loaded successfully', 'success');
+  };
+  img.onerror = () => {
+    fileInfo.textContent = `${f.name} • ${sizeText}`;
+    fileInfo.classList.add('has-file');
+    toast('Image loaded (unable to read dimensions)', 'info');
+  };
+  
+  // Show preview
+  const url = URL.createObjectURL(f);
+  img.src = url;
+  dzPreview.src = url;
+  dzPreview.classList.remove('hidden');
+  // Set before image for compare slider
+  if (beforeImg) { beforeImg.src = url; beforeImg.classList.remove('hidden'); }
+  // Add small thumbnail inside dropzone
+  if (dzThumbs) {
+    dzThumbs.innerHTML = '';
+    const t = new Image();
+    t.src = url;
+    t.alt = 'thumbnail';
+    t.className = 'dz-thumb';
+    dzThumbs.appendChild(t);
+  }
+}
+
+if (dropzone) {
+  dropzone.addEventListener('click', () => fileInput?.click());
+  dropzone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      fileInput?.click();
+    }
+  });
+  ['dragenter','dragover'].forEach(evt => dropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.add('dragover'); }));
+  ;['dragleave','drop'].forEach(evt => dropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.remove('dragover'); }));
+  dropzone.addEventListener('drop', (e) => {
+    const files = e.dataTransfer?.files;
+    if (files && files.length) handleFiles(files);
+  });
+}
+
+fileInput?.addEventListener('change', (e) => {
+  const files = e.target.files;
+  if (files && files.length) handleFiles(files);
+});
+
+// --- Prompt enhancements ---
+function updateCounter() {
+  const len = (promptInput.value || '').length;
+  if (promptCounter) promptCounter.textContent = `${len} chars`;
+  const ok = len > 0;
+  submitBtn.disabled = !ok;
+  requiredHint?.classList.toggle('hidden', ok);
+}
+// Paste-from-clipboard into dropzone (screenshots, etc.)
+document.addEventListener('paste', (e) => {
+  const items = e.clipboardData?.items || [];
+  for (const it of items) {
+    if (it.type && it.type.startsWith('image/')) {
+      const file = it.getAsFile();
+      if (file) {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        handleFiles(dt.files);
+        toast('Image pasted');
+        e.preventDefault();
+        break;
+      }
+    }
+  }
+});
+function autoResize() {
+  // smooth auto-resize for textarea
+  promptInput.style.height = 'auto';
+  promptInput.style.height = Math.min(240, Math.max(64, promptInput.scrollHeight)) + 'px';
+}
+promptInput?.addEventListener('input', () => { 
+  updateCounter(); 
+  autoResize(); 
+  // Save to localStorage
+  localStorage.setItem('lastPrompt', promptInput.value);
+});
+window.addEventListener('load', () => { 
+  updateCounter(); 
+  autoResize(); 
+  // Restore last prompt
+  const lastPrompt = localStorage.getItem('lastPrompt');
+  if (lastPrompt && !promptInput.value) {
+    promptInput.value = lastPrompt;
+    updateCounter();
+    autoResize();
+  }
+});
+
+// Update chip active states based on current prompt
+function updateChipStates() {
+  const currentPrompt = promptInput.value.toLowerCase();
+  document.querySelectorAll('.chip').forEach(chip => {
+    const chipText = chip.textContent.replace(/^[^\w]*/, '').toLowerCase(); // Remove icon
+    chip.classList.toggle('active', currentPrompt.includes(chipText));
+  });
+}
 
 // Button ripple micro-interaction
 function attachRipple(btn) {
@@ -61,8 +254,13 @@ function logDebug(...args) {
 function setLoading(isLoading, msg = '') {
   spinner.classList.toggle('hidden', !isLoading);
   spinner.classList.toggle('running', isLoading);
-  submitBtn.disabled = isLoading;
+  setProcessingUI(isLoading);
   updateStatus(msg || (isLoading ? 'Processing…' : ''));
+  if (isLoading) { progressStart(); } else { progressDone(); }
+  // Skeleton state for preview area
+  const previewArea = document.querySelector('.preview-area');
+  if (isLoading) previewArea?.classList.add('skeleton');
+  else previewArea?.classList.remove('skeleton');
 }
 
 function showImageFromBase64(b64) {
@@ -81,8 +279,21 @@ function clearAll() {
   spinner.classList.add('hidden');
   spinner.classList.remove('running');
   // Reset dynamic palette back to defaults
-  setVar('--accent', 'var(--blue-500)');
-  setVar('--accent-2', 'var(--red-500)');
+  setVar('--accent', '#4318FF');
+  setVar('--accent-2', '#FF6B6B');
+  // Reset local previews
+  if (dzPreview) { dzPreview.src = ''; dzPreview.classList.add('hidden'); }
+  if (dzThumbs) dzThumbs.innerHTML = '';
+  if (beforeImg) { beforeImg.src = ''; beforeImg.classList.add('hidden'); }
+  hideCompare();
+  resultActions?.classList.add('hidden');
+  
+  // Reset file info
+  fileInfo.textContent = 'No image selected yet';
+  fileInfo.classList.remove('has-file');
+  
+  // Clear localStorage
+  localStorage.removeItem('lastPrompt');
 }
 
 clearBtn.addEventListener('click', () => clearAll());
@@ -103,6 +314,7 @@ form.addEventListener('submit', async (e) => {
     let imageUrl = '';
     if (!prompt) {
       updateStatus('Prompt is required.');
+      shake(promptInput.closest('.form-group'));
       return;
     }
     // Begin processing after validation passes
@@ -125,6 +337,7 @@ form.addEventListener('submit', async (e) => {
       } catch (e) {
         setLoading(false);
   updateStatus(`Image upload failed: ${e.message || e}`);
+        shake(dropzone);
         return;
       }
     }
@@ -157,9 +370,11 @@ form.addEventListener('submit', async (e) => {
     if (!jobId) {
       updateStatus('Task created, but jobId was not found in the response.');
       setLoading(false);
+      shake(statusEl);
       return;
     }
   updateStatus(`Task created (${jobId}). Preparing SSE connection…`);
+  progressNearDone();
     // Prefer SSE for instant updates; fallback to polling
     let settled = false;
     let es;
@@ -178,27 +393,36 @@ form.addEventListener('submit', async (e) => {
             outputImg.classList.remove('hidden');
               updateStatus('Done (SSE callback)');
             spinner.classList.remove('running');
+              progressDone();
+              toast('Image is ready (SSE)', 'success');
             appearImage();
             if (ENABLE_DYNAMIC_PALETTE) {
               // Derive palette from the resulting image URL
               derivePaletteFromImageURL(out.image_url);
             }
+            showCompare();
+            setResultActions(outputImg.src);
           } else if (out?.image_base64) {
             outputImg.src = `data:image/png;base64,${out.image_base64}`;
             outputImg.classList.remove('hidden');
               updateStatus('Done (SSE callback)');
             spinner.classList.remove('running');
+              progressDone();
+              toast('Image is ready (SSE)', 'success');
             appearImage();
             if (ENABLE_DYNAMIC_PALETTE) {
               // Base64 source, still can sample via an Image element
               derivePaletteFromImageURL(outputImg.src);
             }
+            showCompare();
+            setResultActions(outputImg.src);
           } else {
               updateStatus('Task finished but no image found in output.');
           }
           settled = true;
           setLoading(false);
           es && es.close();
+            progressDone();
           logDebug('SSE closed (delivered)');
           updateStatus(statusEl.textContent || 'Done (SSE callback)');
         } catch (err) {
@@ -210,6 +434,7 @@ form.addEventListener('submit', async (e) => {
         es && es.close();
         logDebug('SSE error/closed', e);
           if (!settled) updateStatus('SSE failed, switching to polling…');
+          if (!settled) shake(statusEl);
       };
     } catch {}
 
@@ -234,15 +459,23 @@ form.addEventListener('submit', async (e) => {
             outputImg.classList.remove('hidden');
               updateStatus('Done (callback)');
               spinner.classList.remove('running');
+                progressDone();
+                toast('Image is ready', 'success');
               appearImage();
               if (ENABLE_DYNAMIC_PALETTE) derivePaletteFromImageURL(out.image_url);
+              showCompare();
+              setResultActions(outputImg.src);
           } else if (out?.image_base64) {
             outputImg.src = `data:image/png;base64,${out.image_base64}`;
             outputImg.classList.remove('hidden');
               updateStatus('Done (callback)');
               spinner.classList.remove('running');
+                progressDone();
+                toast('Image is ready', 'success');
               appearImage();
               if (ENABLE_DYNAMIC_PALETTE) derivePaletteFromImageURL(outputImg.src);
+              showCompare();
+              setResultActions(outputImg.src);
           } else {
               updateStatus('Task finished but no image found in output.');
           }
@@ -254,6 +487,7 @@ form.addEventListener('submit', async (e) => {
           clearInterval(timer);
           setLoading(false);
             updateStatus('Task failed.');
+              toast('Task failed', 'error');
           logDebug('poll status failed');
         } else {
           updateStatus(`KIE.ai: ${s.status || 'pending'}…`);
@@ -268,18 +502,88 @@ form.addEventListener('submit', async (e) => {
       } catch (e) {
         clearInterval(timer);
         setLoading(false);
-  updateStatus(`Polling error: ${e.message || e}`);
+        updateStatus(`Polling error: ${e.message || e}`);
+        toast('Polling error', 'error');
         es && es.close();
         logDebug('poll error', e);
       }
     }, intervalMs);
   } catch (err) {
     console.error(err);
-  updateStatus(`Error: ${err.message || err}`);
+    updateStatus(`Error: ${err.message || err}`);
   } finally {
     setLoading(false);
   }
 });
+
+// Compare slider helpers
+function showCompare() {
+  if (!beforeImg?.src || !outputImg?.src) return;
+  compareSlider?.classList.remove('hidden');
+  compareDivider?.classList.remove('hidden');
+  updateCompare();
+}
+function hideCompare() { compareSlider?.classList.add('hidden'); compareDivider?.classList.add('hidden'); }
+function updateCompare() {
+  const v = Number(compareSlider?.value || 50);
+  const right = 100 - v;
+  outputImg.style.clipPath = `inset(0 ${right}% 0 0)`;
+  if (compareDivider) compareDivider.style.left = `calc(${v}% - 1px)`;
+}
+compareSlider?.addEventListener('input', updateCompare);
+
+// Result actions helpers (bind once)
+downloadBtn?.addEventListener('click', () => { if (outputImg?.src) downloadImage(outputImg.src); });
+openBtn?.addEventListener('click', () => { if (outputImg?.src) window.open(outputImg.src, '_blank'); });
+copyUrlBtn?.addEventListener('click', async () => {
+  try { if (outputImg?.src) { await navigator.clipboard.writeText(outputImg.src); toast('Copied'); } }
+  catch { toast('Copy failed','error'); }
+});
+function setResultActions(src) {
+  if (!resultActions) return;
+  resultActions.classList.remove('hidden');
+  const isHttp = /^https?:\/\//i.test(src);
+  copyUrlBtn?.classList.toggle('hidden', !isHttp);
+}
+async function downloadImage(src) {
+  try {
+    const a = document.createElement('a');
+    a.href = src; a.download = 'output.png';
+    document.body.appendChild(a); a.click(); a.remove();
+  } catch { toast('Download failed','error'); }
+}
+
+// Keyboard shortcuts: Cmd/Ctrl+Enter to submit, Esc to clear
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    e.preventDefault();
+    form?.requestSubmit();
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    clearBtn?.click();
+  }
+});
+
+// Mobile sticky action bar
+function updateStickyActions() {
+  if (window.innerWidth <= 640) {
+    const formRect = form.getBoundingClientRect();
+    const shouldShow = formRect.bottom < window.innerHeight - 100;
+    stickyActions?.classList.toggle('show', shouldShow);
+    stickyActions?.classList.remove('hidden');
+  } else {
+    stickyActions?.classList.add('hidden');
+    stickyActions?.classList.remove('show');
+  }
+}
+
+// Wire up sticky submit button
+stickySubmit?.addEventListener('click', () => form?.requestSubmit());
+
+// Listen for scroll and resize
+window.addEventListener('scroll', updateStickyActions);
+window.addEventListener('resize', updateStickyActions);
+window.addEventListener('load', updateStickyActions);
 
 // Helper: fade status text on change
 let lastStatus = '';

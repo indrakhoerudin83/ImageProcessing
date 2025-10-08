@@ -11,7 +11,7 @@
     <header class="app-header">
       <div class="container header-bar">
         <div class="brand">
-          <img src="/logo.png" alt="Site Logo" class="brand-logo" />
+          <img src="/static/logo.png" alt="Site Logo" class="brand-logo" />
           <div class="brand-text">
             <h1 class="gradient-text">Artifex</h1>
             <p class="subtitle">Upload an image or enter a prompt, then generate with AI.</p>
@@ -25,28 +25,68 @@
       </div>
     </header>
 
+    <div id="progressBar" class="progress-bar hidden" aria-hidden="true"></div>
+
     <main class="container">
       <section class="tool-card">
         <form id="aiForm" class="form-grid">
           
           <div class="form-group">
-            <label for="file">Image</label>
-            <input id="file" name="file" type="file" accept="image/*" />
+            <label for="file" class="section-label">
+              <span class="label-icon">🖼️</span>
+              <span class="label-text">
+                Image
+                <span class="label-subtitle">Upload your image to enhance</span>
+              </span>
+            </label>
+            <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Upload or drop image">
+              <div class="dz-content">
+                <svg class="dz-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true">
+                  <path d="M19 7h-1.586l-1.707-1.707A.996.996 0 0 0 14.586 5H9.414a.996.996 0 0 0-.707.293L7 7H5c-1.103 0-2 .897-2 2v8c0 1.103.897 2 2 2h14c1.103 0 2-.897 2-2V9c0-1.103-.897-2-2-2zm-7 10a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 .001 4.001A2 2 0 0 0 12 11z"/>
+                </svg>
+                <div class="dz-text">
+                  <strong>Click to upload</strong> or drag & drop
+                  <span class="dz-sub">PNG or JPG • up to 10MB</span>
+                </div>
+              </div>
+              <img id="dzPreview" class="dz-preview hidden" alt="Selected image preview" />
+              <div id="dzThumbs" class="dz-thumbs"></div>
+            </div>
+            <input id="file" name="file" type="file" accept="image/*" class="visually-hidden" />
+            <small id="fileInfo" class="file-info">No image selected yet</small>
           </div>
 
-          <div class="form-group">
-            <label for="prompt">Prompt</label>
-            <textarea id="prompt" name="prompt" rows="3" placeholder="Example: make it grayscale and boost contrast"></textarea>
+          <div class="form-group prompt-group">
+            <label for="prompt" class="section-label">
+              <span class="label-icon">✨</span>
+              <span class="label-text">
+                Prompt
+                <span class="label-subtitle">Describe the enhancement you want</span>
+              </span>
+            </label>
+            <textarea id="prompt" name="prompt" rows="3" placeholder="e.g. Grayscale, sharpen details, increase contrast for a vintage look"></textarea>
+            <div id="promptCounter" class="counter" aria-live="polite">0 chars</div>
+            <div id="requiredHint" class="hint hidden">Prompt is required</div>
           </div>
 
           
 
           <div class="actions">
-            <button id="submitBtn" type="submit" class="btn primary">Generate</button>
+            <button id="submitBtn" type="submit" class="btn primary">
+              <span class="btn-text">Generate</span>
+              <span class="btn-shortcut">⌘↵</span>
+            </button>
             <button id="clearBtn" type="button" class="btn">Clear</button>
           </div>
         </form>
       </section>
+
+      <!-- Mobile sticky action bar -->
+      <div id="stickyActions" class="sticky-actions hidden">
+        <button id="stickySubmitBtn" type="button" class="btn primary sticky-btn">
+          <span class="btn-text">Generate</span>
+        </button>
+      </div>
 
       <section class="preview-card">
         <div class="preview-header">
@@ -60,7 +100,16 @@
             <div class="dot dot2"></div>
             <div class="dot dot3"></div>
           </div>
-          <img id="outputImg" alt="Output AI" class="preview-img hidden" />
+          <img id="beforeImg" alt="Original" class="preview-img hidden before-img" />
+          <img id="outputImg" alt="Output AI" class="preview-img hidden after-img" />
+          <input id="compareSlider" class="compare-slider hidden" type="range" min="0" max="100" value="50" aria-label="Compare slider" />
+          <div id="compareDivider" class="compare-divider hidden"></div>
+        </div>
+
+        <div id="resultActions" class="result-actions hidden">
+          <button id="downloadBtn" type="button" class="btn small">Download</button>
+          <button id="openBtn" type="button" class="btn small">Open</button>
+          <button id="copyUrlBtn" type="button" class="btn small">Copy URL</button>
         </div>
 
         <div class="debug-panel">
@@ -72,6 +121,20 @@
         </div>
       </section>
     </main>
+
+    <!-- Toast notifications -->
+          </section>
+    </main>
+
+    <!-- Mobile sticky action bar -->
+    <div id="stickyActions" class="sticky-actions hidden">
+      <button id="stickySubmit" type="button" class="btn primary">
+        <span class="btn-text">Generate</span>
+      </button>
+    </div>
+
+    <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
 
     <footer class="app-footer">
       <div class="container">
