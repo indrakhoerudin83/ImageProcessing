@@ -1,7 +1,30 @@
 const requiredHint = document.getElementById('requiredHint');
 
 const beforeImg = document.getElementById('beforeImg');
-const compareSlider = document.getElementById('compareSlider');
+const com  // Show preview with large preview system
+  const url = URL.createObjectURL(f);
+  img.src = url;
+  dzPreview.src = url;
+  dzPreview.classList.remove('hidden');
+  
+  // Show large preview
+  if (largePreview && largePreviewImg && previewFilename) {
+    largePreviewImg.src = url;
+    previewFilename.textContent = f.name;
+    largePreview.classList.remove('hidden');
+  }
+  
+  // Set before image for compare slider
+  if (beforeImg) { beforeImg.src = url; beforeImg.classList.remove('hidden'); }
+  // Add small thumbnail inside dropzone
+  if (dzThumbs) {
+    dzThumbs.innerHTML = '';
+    const t = new Image();
+    t.src = url;
+    t.alt = 'thumbnail';
+    t.className = 'dz-thumb';
+    dzThumbs.appendChild(t);
+  }ument.getElementById('compareSlider');
 const compareDivider = document.getElementById('compareDivider');
 const resultActions = document.getElementById('resultActions');
 const downloadBtn = document.getElementById('downloadBtn');
@@ -41,12 +64,17 @@ function shake(el) {
   el.classList.add('shake');
   setTimeout(() => el.classList.remove('shake'), 500);
 }
-// Dropzone + prompt enhancements
+// Enhanced UI elements
 const dropzone = document.getElementById('dropzone');
 const fileInfo = document.getElementById('fileInfo');
 const dzPreview = document.getElementById('dzPreview');
+const largePreview = document.getElementById('largePreview');
+const largePreviewImg = document.getElementById('largePreviewImg');
+const previewFilename = document.getElementById('previewFilename');
 const promptCounter = document.getElementById('promptCounter');
-// New UI elements (no theme toggle, no modal)
+const showExamplesBtn = document.getElementById('showExamplesBtn');
+const downloadSection = document.getElementById('downloadSection');
+const comparisonContainer = document.getElementById('comparisonContainer');
 const progressBar = document.getElementById('progressBar');
 const toastContainer = document.getElementById('toastContainer');
 const dzThumbs = document.getElementById('dzThumbs');
@@ -81,78 +109,287 @@ window.requestAnimationFrame(() => {
   }
 });
 
-// --- Dropzone interactions ---
+// --- Enhanced Dropzone interactions ---
 function handleFiles(files) {
   if (!files || !files.length) return;
   const f = files[0];
   
-  // Validate file type and size
-  const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
-  const maxSize = 10 * 1024 * 1024; // 10MB
+  // Show processing state
+  showFileProcessing(f.name);
   
-  if (!validTypes.includes(f.type)) {
-    toast('Please select a PNG, JPG, or WebP image', 'error');
+  // Validate file with enhanced validation
+  const validation = validateImageFile(f);
+  if (!validation.valid) {
+    toast(validation.error, 'error');
     shake(dropzone);
-    return;
-  }
-  
-  if (f.size > maxSize) {
-    toast('Image must be smaller than 10MB', 'error');
-    shake(dropzone);
+    hideFileProcessing();
     return;
   }
   
   fileInput.files = files;
   
-  // Enhanced file info with size and resolution
-  const sizeKB = Math.ceil((f.size || 0) / 1024);
-  const sizeText = sizeKB > 1024 ? `${(sizeKB/1024).toFixed(1)}MB` : `${sizeKB}KB`;
+  // Update file info with enhanced display
+  updateFileInfo(f);
   
-  // Get image dimensions
+  // Show preview with large preview system
+  const url = URL.createObjectURL(f);
+  
   const img = new Image();
   img.onload = () => {
-    fileInfo.textContent = `${f.name} • ${img.width}×${img.height} • ${sizeText}`;
-    fileInfo.classList.add('has-file');
-    toast('Image loaded successfully', 'success');
-  };
-  img.onerror = () => {
-    fileInfo.textContent = `${f.name} • ${sizeText}`;
-    fileInfo.classList.add('has-file');
-    toast('Image loaded (unable to read dimensions)', 'info');
+    // Update preview images
+    dzPreview.src = url;
+    dzPreview.classList.remove('hidden');
+    
+    // Show large preview
+    if (largePreview && largePreviewImg && previewFilename) {
+      largePreviewImg.src = url;
+      previewFilename.textContent = f.name;
+      largePreview.classList.remove('hidden');
+    }
+    
+    // Set before image for compare slider
+    if (beforeImg) { 
+      beforeImg.src = url; 
+      beforeImg.classList.remove('hidden'); 
+    }
+    
+    // Add small thumbnail inside dropzone
+    if (dzThumbs) {
+      dzThumbs.innerHTML = '';
+      const t = new Image();
+      t.src = url;
+      t.alt = 'thumbnail';
+      t.className = 'dz-thumb';
+      dzThumbs.appendChild(t);
+    }
+    
+    // Success feedback
+    toast(`Image loaded successfully: ${f.name}`, 'success');
+    announceToScreenReader(`Image ${f.name} loaded successfully. Size: ${img.width} by ${img.height} pixels.`);
+    
+    hideFileProcessing();
   };
   
-  // Show preview
-  const url = URL.createObjectURL(f);
+  img.onerror = () => {
+    toast(`Image loaded but dimensions unavailable: ${f.name}`, 'info');
+    hideFileProcessing();
+  };
+  
   img.src = url;
-  dzPreview.src = url;
-  dzPreview.classList.remove('hidden');
-  // Set before image for compare slider
-  if (beforeImg) { beforeImg.src = url; beforeImg.classList.remove('hidden'); }
-  // Add small thumbnail inside dropzone
-  if (dzThumbs) {
-    dzThumbs.innerHTML = '';
-    const t = new Image();
-    t.src = url;
-    t.alt = 'thumbnail';
-    t.className = 'dz-thumb';
-    dzThumbs.appendChild(t);
-  }
 }
 
+// ========== ENHANCED DRAG & DROP FUNCTIONALITY ==========
+
 if (dropzone) {
+  // Click to upload
   dropzone.addEventListener('click', () => fileInput?.click());
+  
+  // Keyboard accessibility
   dropzone.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       fileInput?.click();
     }
   });
-  ['dragenter','dragover'].forEach(evt => dropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.add('dragover'); }));
-  ;['dragleave','drop'].forEach(evt => dropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.remove('dragover'); }));
-  dropzone.addEventListener('drop', (e) => {
-    const files = e.dataTransfer?.files;
-    if (files && files.length) handleFiles(files);
+
+  // Enhanced drag and drop events
+  let dragCounter = 0;
+
+  // Prevent default drag behaviors on document
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    document.addEventListener(eventName, preventDefaults, false);
+    dropzone.addEventListener(eventName, preventDefaults, false);
   });
+
+  function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  // Highlight drop area when item is dragged over it
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropzone.addEventListener(eventName, handleDragEnter, false);
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropzone.addEventListener(eventName, handleDragLeave, false);
+  });
+
+  function handleDragEnter(e) {
+    dragCounter++;
+    dropzone.classList.add('dragover');
+    
+    // Add visual feedback
+    const dzText = dropzone.querySelector('.dz-text');
+    if (dzText) {
+      dzText.innerHTML = '<strong>Drop your image here!</strong>';
+    }
+    
+    // Check if dragged item contains files
+    if (e.dataTransfer.items) {
+      const hasImageFile = Array.from(e.dataTransfer.items).some(item => 
+        item.kind === 'file' && item.type.startsWith('image/')
+      );
+      
+      if (hasImageFile) {
+        dropzone.classList.add('valid-drag');
+      } else {
+        dropzone.classList.add('invalid-drag');
+      }
+    }
+  }
+
+  function handleDragLeave(e) {
+    dragCounter--;
+    if (dragCounter <= 0) {
+      dragCounter = 0;
+      dropzone.classList.remove('dragover', 'valid-drag', 'invalid-drag');
+      
+      // Reset text
+      const dzText = dropzone.querySelector('.dz-text');
+      if (dzText) {
+        dzText.innerHTML = '<strong>Click to upload</strong> or drag & drop<span class="dz-sub">PNG or JPG • up to 10MB</span>';
+      }
+    }
+  }
+
+  // Handle dropped files
+  dropzone.addEventListener('drop', handleDrop, false);
+
+  function handleDrop(e) {
+    dragCounter = 0;
+    dropzone.classList.remove('dragover', 'valid-drag', 'invalid-drag');
+    
+    // Reset text
+    const dzText = dropzone.querySelector('.dz-text');
+    if (dzText) {
+      dzText.innerHTML = '<strong>Click to upload</strong> or drag & drop<span class="dz-sub">PNG or JPG • up to 10MB</span>';
+    }
+
+    const dt = e.dataTransfer;
+    const files = dt.files;
+
+    if (files && files.length > 0) {
+      // Validate if it's an image file
+      const file = files[0];
+      const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+      
+      if (!validTypes.includes(file.type)) {
+        toast('Please drop a valid image file (PNG, JPG, WebP)', 'error');
+        shake(dropzone);
+        return;
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        toast('Image file is too large. Maximum size is 10MB', 'error');
+        shake(dropzone);
+        return;
+      }
+
+      toast('Image dropped successfully!', 'success');
+      handleFiles(files);
+    } else {
+      toast('No valid image file detected', 'error');
+      shake(dropzone);
+    }
+  }
+
+  // Handle multiple files (take first image only)
+  function handleMultipleFiles(files) {
+    const imageFiles = Array.from(files).filter(file => 
+      file.type.startsWith('image/')
+    );
+
+    if (imageFiles.length === 0) {
+      toast('No image files found in the dropped items', 'error');
+      return;
+    }
+
+    if (imageFiles.length > 1) {
+      toast(`Found ${imageFiles.length} images. Using the first one: ${imageFiles[0].name}`, 'info');
+    }
+
+    // Create a new FileList with just the first image
+    const dt = new DataTransfer();
+    dt.items.add(imageFiles[0]);
+    handleFiles(dt.files);
+  }
+}
+
+// ========== GLOBAL DRAG & DROP HANDLING ==========
+
+// Prevent default drag behaviors and add global drag feedback
+let globalDragCounter = 0;
+
+// Handle page-wide drag events
+['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+  document.addEventListener(eventName, handleGlobalDrag, false);
+});
+
+function handleGlobalDrag(e) {
+  // Only handle if it's not already handled by dropzone
+  if (e.target.closest('#dropzone')) {
+    return;
+  }
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  if (e.type === 'dragenter') {
+    globalDragCounter++;
+    document.body.classList.add('page-dragover');
+    
+    // Check if dragged item contains image files
+    if (e.dataTransfer.items) {
+      const hasImageFile = Array.from(e.dataTransfer.items).some(item => 
+        item.kind === 'file' && item.type.startsWith('image/')
+      );
+      
+      if (hasImageFile) {
+        document.body.classList.add('dragging-valid');
+        if (dropzone) {
+          dropzone.style.pointerEvents = 'all';
+          dropzone.style.zIndex = '10001';
+        }
+      } else {
+        document.body.classList.add('dragging-invalid');
+      }
+    }
+  } else if (e.type === 'dragleave') {
+    globalDragCounter--;
+    if (globalDragCounter <= 0) {
+      globalDragCounter = 0;
+      document.body.classList.remove('page-dragover', 'dragging-valid', 'dragging-invalid');
+      if (dropzone) {
+        dropzone.style.pointerEvents = '';
+        dropzone.style.zIndex = '';
+      }
+    }
+  } else if (e.type === 'drop') {
+    globalDragCounter = 0;
+    document.body.classList.remove('page-dragover', 'dragging-valid', 'dragging-invalid');
+    if (dropzone) {
+      dropzone.style.pointerEvents = '';
+      dropzone.style.zIndex = '';
+    }
+
+    // Handle files dropped outside dropzone
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      const imageFiles = Array.from(files).filter(file => 
+        file.type.startsWith('image/')
+      );
+
+      if (imageFiles.length > 0) {
+        toast(`Image dropped! Processing: ${imageFiles[0].name}`, 'success');
+        const dt = new DataTransfer();
+        dt.items.add(imageFiles[0]);
+        handleFiles(dt.files);
+      } else {
+        toast('Please drop an image file (PNG, JPG, WebP)', 'error');
+      }
+    }
+  }
 }
 
 fileInput?.addEventListener('change', (e) => {
@@ -161,6 +398,32 @@ fileInput?.addEventListener('change', (e) => {
 });
 
 // --- Prompt enhancements ---
+// Show Examples functionality
+if (showExamplesBtn) {
+  showExamplesBtn.addEventListener('click', () => {
+    const examples = [
+      "Convert to black and white with high contrast",
+      "Add warm vintage film effect with grain",
+      "Enhance colors and increase saturation",
+      "Apply soft gaussian blur for dreamy effect",
+      "Sharpen details and increase clarity",
+      "Add dramatic shadows and highlights",
+      "Create sepia tone vintage look",
+      "Apply cool blue tone filter",
+      "Increase brightness and reduce noise",
+      "Add artistic oil painting effect"
+    ];
+    
+    const randomExample = examples[Math.floor(Math.random() * examples.length)];
+    if (promptInput) {
+      promptInput.value = randomExample;
+      updateCounter();
+      autoResize();
+      toast('Example prompt added', 'info');
+    }
+  });
+}
+
 function updateCounter() {
   const len = (promptInput.value || '').length;
   if (promptCounter) promptCounter.textContent = `${len} chars`;
@@ -168,23 +431,211 @@ function updateCounter() {
   submitBtn.disabled = !ok;
   requiredHint?.classList.toggle('hidden', ok);
 }
-// Paste-from-clipboard into dropzone (screenshots, etc.)
-document.addEventListener('paste', (e) => {
+// ========== ENHANCED PASTE FROM CLIPBOARD ==========
+
+// Enhanced paste-from-clipboard functionality
+document.addEventListener('paste', async (e) => {
+  // Prevent default paste behavior
+  e.preventDefault();
+  
   const items = e.clipboardData?.items || [];
-  for (const it of items) {
-    if (it.type && it.type.startsWith('image/')) {
-      const file = it.getAsFile();
+  let imageFound = false;
+
+  for (const item of items) {
+    if (item.type && item.type.startsWith('image/')) {
+      imageFound = true;
+      const file = item.getAsFile();
+      
       if (file) {
+        // Validate file size
+        if (file.size > 10 * 1024 * 1024) {
+          toast('Pasted image is too large. Maximum size is 10MB', 'error');
+          return;
+        }
+
+        // Create a proper filename for pasted image
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+        const extension = file.type.split('/')[1] || 'png';
+        const fileName = `pasted-image-${timestamp}.${extension}`;
+        
+        // Create a new file with proper name
+        const namedFile = new File([file], fileName, { type: file.type });
+        
         const dt = new DataTransfer();
-        dt.items.add(file);
+        dt.items.add(namedFile);
+        
+        toast(`Image pasted from clipboard: ${fileName}`, 'success');
         handleFiles(dt.files);
-        toast('Image pasted');
-        e.preventDefault();
         break;
       }
     }
   }
+
+  if (!imageFound && items.length > 0) {
+    // Check if there's a URL that might be an image
+    for (const item of items) {
+      if (item.type === 'text/plain') {
+        try {
+          const text = await new Promise((resolve) => {
+            item.getAsString(resolve);
+          });
+          
+          // Check if it's an image URL
+          if (text.match(/\.(jpg|jpeg|png|gif|webp)$/i) || 
+              text.match(/^https?:\/\/.*\.(jpg|jpeg|png|gif|webp)/i)) {
+            toast('Image URL detected in clipboard. Please download and drop the file instead.', 'info');
+            return;
+          }
+        } catch (error) {
+          console.log('Could not read clipboard text:', error);
+        }
+      }
+    }
+    
+    toast('No image found in clipboard. Try copying an image first.', 'error');
+  }
 });
+
+// Add keyboard shortcut hints
+document.addEventListener('keydown', (e) => {
+  // Ctrl+V or Cmd+V hint
+  if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+    // Show a brief hint about paste functionality
+    const hasClipboardImage = navigator.clipboard && navigator.clipboard.read;
+    if (hasClipboardImage) {
+      // Visual feedback that paste is being processed
+      if (dropzone) {
+        dropzone.style.borderColor = '#8B5CF6';
+        setTimeout(() => {
+          dropzone.style.borderColor = '';
+        }, 300);
+      }
+    }
+  }
+});
+
+// ========== ADDITIONAL DRAG & DROP ENHANCEMENTS ==========
+
+// Add file validation helper
+function validateImageFile(file) {
+  const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
+  const maxSize = 10 * 1024 * 1024; // 10MB
+
+  if (!validTypes.includes(file.type)) {
+    return {
+      valid: false,
+      error: `Invalid file type: ${file.type}. Please use PNG, JPG, WebP, or GIF.`
+    };
+  }
+
+  if (file.size > maxSize) {
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+    return {
+      valid: false,
+      error: `File too large: ${sizeMB}MB. Maximum size is 10MB.`
+    };
+  }
+
+  return { valid: true };
+}
+
+// Add drag and drop visual feedback helper
+function updateDropzoneText(state, fileName = '') {
+  const dzText = dropzone?.querySelector('.dz-text');
+  if (!dzText) return;
+
+  switch (state) {
+    case 'default':
+      dzText.innerHTML = '<strong>Click to upload</strong> or drag & drop<span class="dz-sub">PNG or JPG • up to 10MB</span>';
+      break;
+    case 'dragover':
+      dzText.innerHTML = '<strong>Drop your image here!</strong>';
+      break;
+    case 'valid':
+      dzText.innerHTML = '<strong>✓ Drop to upload image</strong>';
+      break;
+    case 'invalid':
+      dzText.innerHTML = '<strong>✗ Invalid file type</strong><span class="dz-sub">Please use PNG, JPG, or WebP</span>';
+      break;
+    case 'processing':
+      dzText.innerHTML = `<strong>Processing: ${fileName}</strong>`;
+      break;
+  }
+}
+
+// Add file size formatter
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+// Enhanced file info display
+function updateFileInfo(file) {
+  if (!fileInfo) return;
+  
+  const size = formatFileSize(file.size);
+  const type = file.type.split('/')[1].toUpperCase();
+  
+  // Get image dimensions
+  const img = new Image();
+  img.onload = () => {
+    fileInfo.innerHTML = `
+      <strong>${file.name}</strong><br>
+      <span>${img.width} × ${img.height} • ${size} • ${type}</span>
+    `;
+    fileInfo.classList.add('has-file');
+  };
+  
+  img.onerror = () => {
+    fileInfo.innerHTML = `
+      <strong>${file.name}</strong><br>
+      <span>${size} • ${type}</span>
+    `;
+    fileInfo.classList.add('has-file');
+  };
+  
+  const url = URL.createObjectURL(file);
+  img.src = url;
+  
+  // Cleanup URL after loading
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Add accessibility announcements for screen readers
+function announceToScreenReader(message) {
+  const announcement = document.createElement('div');
+  announcement.setAttribute('aria-live', 'polite');
+  announcement.setAttribute('aria-atomic', 'true');
+  announcement.className = 'sr-only';
+  announcement.textContent = message;
+  
+  document.body.appendChild(announcement);
+  
+  setTimeout(() => {
+    document.body.removeChild(announcement);
+  }, 1000);
+}
+
+// Add progress indication for file processing
+function showFileProcessing(fileName) {
+  updateDropzoneText('processing', fileName);
+  announceToScreenReader(`Processing image file: ${fileName}`);
+  
+  if (dropzone) {
+    dropzone.classList.add('processing');
+  }
+}
+
+function hideFileProcessing() {
+  updateDropzoneText('default');
+  
+  if (dropzone) {
+    dropzone.classList.remove('processing');
+  }
+}
 function autoResize() {
   // smooth auto-resize for textarea
   promptInput.style.height = 'auto';
@@ -283,9 +734,14 @@ function clearAll() {
   setVar('--accent-2', '#FF6B6B');
   // Reset local previews
   if (dzPreview) { dzPreview.src = ''; dzPreview.classList.add('hidden'); }
+  if (largePreview) largePreview.classList.add('hidden');
   if (dzThumbs) dzThumbs.innerHTML = '';
   if (beforeImg) { beforeImg.src = ''; beforeImg.classList.add('hidden'); }
   hideCompare();
+  
+  // Hide new UI elements
+  if (downloadSection) downloadSection.classList.add('hidden');
+  if (comparisonContainer) comparisonContainer.classList.add('hidden');
   resultActions?.classList.add('hidden');
   
   // Reset file info
@@ -336,7 +792,7 @@ form.addEventListener('submit', async (e) => {
         }
       } catch (e) {
         setLoading(false);
-  updateStatus(`Image upload failed: ${e.message || e}`);
+  updateStatus(`Image upload failed: ${e.message || e}`, 'error');
         shake(dropzone);
         return;
       }
@@ -373,8 +829,13 @@ form.addEventListener('submit', async (e) => {
       shake(statusEl);
       return;
     }
-  updateStatus(`Task created (${jobId}). Preparing SSE connection…`);
+  updateStatus(`Task created (${jobId}). Preparing SSE connection…`, 'processing');
   progressNearDone();
+  
+    // Dispatch processing start event
+    document.dispatchEvent(new CustomEvent('processing-start', {
+      detail: { jobId, prompt }
+    }));
     // Prefer SSE for instant updates; fallback to polling
     let settled = false;
     let es;
@@ -457,7 +918,7 @@ form.addEventListener('submit', async (e) => {
             if (out?.image_url) {
             outputImg.src = out.image_url;
             outputImg.classList.remove('hidden');
-              updateStatus('Done (callback)');
+              updateStatus('✅ Image generation completed successfully!', 'success');
               spinner.classList.remove('running');
                 progressDone();
                 toast('Image is ready', 'success');
@@ -540,10 +1001,27 @@ copyUrlBtn?.addEventListener('click', async () => {
   catch { toast('Copy failed','error'); }
 });
 function setResultActions(src) {
-  if (!resultActions) return;
-  resultActions.classList.remove('hidden');
-  const isHttp = /^https?:\/\//i.test(src);
-  copyUrlBtn?.classList.toggle('hidden', !isHttp);
+  if (!src) return;
+  
+  // Show download section prominently
+  if (downloadSection) {
+    downloadSection.classList.remove('hidden');
+  }
+  
+  // Show comparison container
+  if (comparisonContainer) {
+    comparisonContainer.classList.remove('hidden');
+  }
+  
+  // Show other result actions
+  if (resultActions) {
+    resultActions.classList.remove('hidden');
+    const isHttp = /^https?:\/\//i.test(src);
+    copyUrlBtn?.classList.toggle('hidden', !isHttp);
+  }
+  
+  // Update comparison slider functionality
+  updateCompareSlider();
 }
 async function downloadImage(src) {
   try {
@@ -585,13 +1063,25 @@ window.addEventListener('scroll', updateStickyActions);
 window.addEventListener('resize', updateStickyActions);
 window.addEventListener('load', updateStickyActions);
 
-// Helper: fade status text on change
+// Helper: fade status text on change with enhanced styling
 let lastStatus = '';
-function updateStatus(text) {
+function updateStatus(text, type = 'info') {
   if (text === undefined || text === null) text = '';
   if (statusEl.textContent !== text) {
     statusEl.textContent = text;
-    statusEl.classList.remove('status-change');
+    
+    // Remove previous status classes
+    statusEl.classList.remove('processing', 'success', 'error', 'status-change');
+    
+    // Add new status type class
+    if (type === 'processing') {
+      statusEl.classList.add('processing');
+    } else if (type === 'success') {
+      statusEl.classList.add('success');
+    } else if (type === 'error') {
+      statusEl.classList.add('error');
+    }
+    
     // trigger reflow to restart animation
     void statusEl.offsetWidth;
     statusEl.classList.add('status-change');
