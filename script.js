@@ -183,20 +183,25 @@ async function pollForResult(jobId) {
       
       const status = await response.json();
       console.log('Poll result:', status);
+      console.log('Status data structure:', JSON.stringify(status, null, 2));
       
       if (status.status === 'completed' || status.output) {
         const output = status.output || status.raw?.output || status.raw?.data?.output;
+        console.log('Extracted output:', output);
         
         if (output?.image_url) {
+          console.log('Found image_url:', output.image_url);
           showResult(output.image_url);
           updateStatus('✅ Image generation completed!', 'success');
           toast('Image generated successfully!', 'success');
         } else if (output?.image_base64) {
+          console.log('Found image_base64, length:', output.image_base64.length);
           const dataUrl = `data:image/png;base64,${output.image_base64}`;
           showResult(dataUrl);
           updateStatus('✅ Image generation completed!', 'success');
           toast('Image generated successfully!', 'success');
         } else {
+          console.error('No image found in output. Available fields:', Object.keys(output || {}));
           throw new Error('No image found in result');
         }
         
@@ -225,16 +230,93 @@ async function pollForResult(jobId) {
 }
 
 function showResult(imageUrl) {
-  if (!outputImg || !imageUrl) return;
+  if (!imageUrl) return;
   
-  outputImg.src = imageUrl;
-  outputImg.classList.remove('hidden');
-  console.log('Result displayed:', imageUrl);
+  console.log('Showing result with URL:', imageUrl);
+  
+  // Get both possible image containers
+  const outputImg = document.getElementById('outputImg');
+  const resultImg = document.getElementById('resultImg');
+  const comparisonContainer = document.getElementById('comparisonContainer');
+  const resultImageContainer = document.getElementById('resultImageContainer');
+  const beforeImg = document.getElementById('beforeImg');
+  
+  // Check if we have a before image for comparison
+  const hasBeforeImage = beforeImg && beforeImg.src && !beforeImg.classList.contains('hidden');
+  
+  if (hasBeforeImage && outputImg && comparisonContainer) {
+    // Show comparison view
+    outputImg.src = imageUrl;
+    outputImg.classList.remove('hidden');
+    comparisonContainer.classList.remove('hidden');
+    
+    // Hide standalone result if it exists
+    if (resultImageContainer) {
+      resultImageContainer.classList.add('hidden');
+    }
+    
+    console.log('Showing comparison view');
+  } else if (resultImg && resultImageContainer) {
+    // Show standalone result view
+    resultImg.src = imageUrl;
+    resultImg.classList.remove('hidden');
+    resultImageContainer.classList.remove('hidden');
+    
+    // Hide comparison if it exists
+    if (comparisonContainer) {
+      comparisonContainer.classList.add('hidden');
+    }
+    
+    console.log('Showing standalone result view');
+  } else if (outputImg) {
+    // Fallback to just showing output image
+    outputImg.src = imageUrl;
+    outputImg.classList.remove('hidden');
+    if (comparisonContainer) {
+      comparisonContainer.classList.remove('hidden');
+    }
+    
+    console.log('Showing fallback output view');
+  }
+  
+  // Show result actions
+  const resultActions = document.getElementById('resultActions');
+  if (resultActions) {
+    resultActions.classList.remove('hidden');
+  }
+  
+  // Show download section
+  const downloadSection = document.getElementById('downloadSection');
+  if (downloadSection) {
+    downloadSection.classList.remove('hidden');
+  }
+  
+  // Hide spinner
+  if (spinner) {
+    spinner.classList.add('hidden');
+  }
+  
+  console.log('Result displayed successfully:', imageUrl);
 }
 
 function clearAll() {
   if (form) form.reset();
+  
+  // Hide all image containers
+  const outputImg = document.getElementById('outputImg');
+  const resultImg = document.getElementById('resultImg');
+  const comparisonContainer = document.getElementById('comparisonContainer');
+  const resultImageContainer = document.getElementById('resultImageContainer');
+  const resultActions = document.getElementById('resultActions');
+  const downloadSection = document.getElementById('downloadSection');
+  
   if (outputImg) outputImg.classList.add('hidden');
+  if (resultImg) resultImg.classList.add('hidden');
+  if (comparisonContainer) comparisonContainer.classList.add('hidden');
+  if (resultImageContainer) resultImageContainer.classList.add('hidden');
+  if (resultActions) resultActions.classList.add('hidden');
+  if (downloadSection) downloadSection.classList.add('hidden');
+  
   updateStatus('');
   setLoading(false);
   console.log('Form cleared');
@@ -252,6 +334,32 @@ document.addEventListener('DOMContentLoaded', () => {
   
   if (clearBtn) {
     clearBtn.addEventListener('click', clearAll);
+  }
+  
+  // Download button event listener
+  const downloadBtn = document.getElementById('downloadBtn');
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', () => {
+      const outputImg = document.getElementById('outputImg');
+      const resultImg = document.getElementById('resultImg');
+      
+      let imageUrl = null;
+      if (outputImg && !outputImg.classList.contains('hidden') && outputImg.src) {
+        imageUrl = outputImg.src;
+      } else if (resultImg && !resultImg.classList.contains('hidden') && resultImg.src) {
+        imageUrl = resultImg.src;
+      }
+      
+      if (imageUrl) {
+        const link = document.createElement('a');
+        link.href = imageUrl;
+        link.download = 'ai-generated-image.png';
+        link.click();
+        toast('Download started', 'success');
+      } else {
+        toast('No image to download', 'error');
+      }
+    });
   }
   
   const promptCounter = document.getElementById('promptCounter');
