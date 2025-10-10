@@ -1185,6 +1185,13 @@ body.dragging-invalid .dropzone {
   animation: fadeInScale 0.8s ease-out 0.3s both;
 }
 
+/* Ensure spinner is completely hidden when not active */
+.spinner.hidden {
+  display: none !important;
+  visibility: hidden;
+  opacity: 0;
+}
+
 .comparison-container {
   position: relative;
   width: 100%;
@@ -1192,6 +1199,7 @@ body.dragging-invalid .dropzone {
   border-radius: 12px;
   overflow: hidden;
   animation: fadeInUp 0.8s ease-out 0.5s both;
+  z-index: 10;
 }
 
 /* Standalone Result Image Container */
@@ -1208,6 +1216,7 @@ body.dragging-invalid .dropzone {
   align-items: center;
   justify-content: center;
   animation: fadeInUp 0.8s ease-out 0.5s both;
+  z-index: 10;
 }
 
 .result-img {
@@ -1418,6 +1427,11 @@ body.dragging-invalid .dropzone {
   gap: 1.5rem;
   height: 200px;
   animation: fadeInScale 0.5s ease-out;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
 }
 
 .spinner-ring {

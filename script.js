@@ -39,6 +39,7 @@ function setLoading(loading) {
   
   if (spinner) {
     spinner.classList.toggle('hidden', !loading);
+    spinner.classList.toggle('running', loading);
   }
   
   if (progressBar) {
@@ -191,12 +192,14 @@ async function pollForResult(jobId) {
         
         if (output?.image_url) {
           console.log('Found image_url:', output.image_url);
+          setLoading(false);
           showResult(output.image_url);
           updateStatus('✅ Image generation completed!', 'success');
           toast('Image generated successfully!', 'success');
         } else if (output?.image_base64) {
           console.log('Found image_base64, length:', output.image_base64.length);
           const dataUrl = `data:image/png;base64,${output.image_base64}`;
+          setLoading(false);
           showResult(dataUrl);
           updateStatus('✅ Image generation completed!', 'success');
           toast('Image generated successfully!', 'success');
@@ -205,7 +208,6 @@ async function pollForResult(jobId) {
           throw new Error('No image found in result');
         }
         
-        setLoading(false);
         return;
       } else if (status.status === 'failed') {
         throw new Error('AI task failed');
@@ -291,9 +293,17 @@ function showResult(imageUrl) {
     downloadSection.classList.remove('hidden');
   }
   
-  // Hide spinner
+  // Hide all loading elements
+  const spinner = document.getElementById('spinner');
+  const progressBar = document.getElementById('progressBar');
+  
   if (spinner) {
     spinner.classList.add('hidden');
+    spinner.classList.remove('running');
+  }
+  
+  if (progressBar) {
+    progressBar.classList.add('hidden');
   }
   
   console.log('Result displayed successfully:', imageUrl);
