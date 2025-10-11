@@ -257,49 +257,23 @@ function showResult(imageUrl) {
   
   console.log('Showing result with URL:', imageUrl);
   
-  // Get both possible image containers
-  const outputImg = document.getElementById('outputImg');
+  // Get image containers
   const resultImg = document.getElementById('resultImg');
-  const comparisonContainer = document.getElementById('comparisonContainer');
   const resultImageContainer = document.getElementById('resultImageContainer');
-  const beforeImg = document.getElementById('beforeImg');
+  const comparisonContainer = document.getElementById('comparisonContainer');
   
-  // Check if we have a before image for comparison
-  const hasBeforeImage = beforeImg && beforeImg.src && !beforeImg.classList.contains('hidden');
-  
-  if (hasBeforeImage && outputImg && comparisonContainer) {
-    // Show comparison view
-    outputImg.src = imageUrl;
-    outputImg.classList.remove('hidden');
-    comparisonContainer.classList.remove('hidden');
-    
-    // Hide standalone result if it exists
-    if (resultImageContainer) {
-      resultImageContainer.classList.add('hidden');
-    }
-    
-    console.log('Showing comparison view');
-  } else if (resultImg && resultImageContainer) {
-    // Show standalone result view
+  // Always use standalone result view for full display
+  if (resultImg && resultImageContainer) {
     resultImg.src = imageUrl;
     resultImg.classList.remove('hidden');
     resultImageContainer.classList.remove('hidden');
     
-    // Hide comparison if it exists
+    // Hide comparison container
     if (comparisonContainer) {
       comparisonContainer.classList.add('hidden');
     }
     
-    console.log('Showing standalone result view');
-  } else if (outputImg) {
-    // Fallback to just showing output image
-    outputImg.src = imageUrl;
-    outputImg.classList.remove('hidden');
-    if (comparisonContainer) {
-      comparisonContainer.classList.remove('hidden');
-    }
-    
-    console.log('Showing fallback output view');
+    console.log('Showing full result view');
   }
   
   // Show result actions
@@ -333,15 +307,13 @@ function showResult(imageUrl) {
 function clearAll() {
   if (form) form.reset();
   
-  // Hide all image containers
-  const outputImg = document.getElementById('outputImg');
+  // Hide all image containers  
   const resultImg = document.getElementById('resultImg');
   const comparisonContainer = document.getElementById('comparisonContainer');
   const resultImageContainer = document.getElementById('resultImageContainer');
   const resultActions = document.getElementById('resultActions');
   const downloadSection = document.getElementById('downloadSection');
   
-  if (outputImg) outputImg.classList.add('hidden');
   if (resultImg) resultImg.classList.add('hidden');
   if (comparisonContainer) comparisonContainer.classList.add('hidden');
   if (resultImageContainer) resultImageContainer.classList.add('hidden');
@@ -436,7 +408,6 @@ function showFilePreview(file) {
   const largePreviewImg = document.getElementById('largePreviewImg');
   const previewFilename = document.getElementById('previewFilename');
   const fileInfo = document.getElementById('fileInfo');
-  const beforeImg = document.getElementById('beforeImg');
   
   const url = URL.createObjectURL(file);
   
@@ -451,12 +422,6 @@ function showFilePreview(file) {
     largePreviewImg.src = url;
     previewFilename.textContent = file.name;
     largePreview.classList.remove('hidden');
-  }
-  
-  // Set before image for comparison
-  if (beforeImg) {
-    beforeImg.src = url;
-    beforeImg.classList.remove('hidden');
   }
   
   // Add thumbnail to dropzone
@@ -493,7 +458,6 @@ function clearFilePreview() {
   const dzPreview = document.getElementById('dzPreview');
   const dzThumbs = document.getElementById('dzThumbs');
   const largePreview = document.getElementById('largePreview');
-  const beforeImg = document.getElementById('beforeImg');
   const fileInfo = document.getElementById('fileInfo');
   const dropzone = document.getElementById('dropzone');
   
@@ -501,7 +465,6 @@ function clearFilePreview() {
   if (dzPreview) dzPreview.classList.add('hidden');
   if (largePreview) largePreview.classList.add('hidden');
   if (dzThumbs) dzThumbs.innerHTML = '';
-  if (beforeImg) beforeImg.classList.add('hidden');
   
   // Reset file info
   if (fileInfo) {
@@ -535,19 +498,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const downloadBtn = document.getElementById('downloadBtn');
   if (downloadBtn) {
     downloadBtn.addEventListener('click', () => {
-      const outputImg = document.getElementById('outputImg');
       const resultImg = document.getElementById('resultImg');
       
-      let imageUrl = null;
-      if (outputImg && !outputImg.classList.contains('hidden') && outputImg.src) {
-        imageUrl = outputImg.src;
-      } else if (resultImg && !resultImg.classList.contains('hidden') && resultImg.src) {
-        imageUrl = resultImg.src;
-      }
-      
-      if (imageUrl) {
+      if (resultImg && !resultImg.classList.contains('hidden') && resultImg.src) {
         const link = document.createElement('a');
-        link.href = imageUrl;
+        link.href = resultImg.src;
         link.download = 'ai-generated-image.png';
         link.click();
         toast('Download started', 'success');
