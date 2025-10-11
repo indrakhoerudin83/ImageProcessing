@@ -304,6 +304,47 @@ function showResult(imageUrl) {
   console.log('Result displayed successfully:', imageUrl);
 }
 
+// Force download image function
+async function downloadImage(imageUrl) {
+  try {
+    console.log('Starting download for:', imageUrl);
+    
+    // Show downloading status
+    updateStatus('Downloading image...', 'info');
+    
+    // Fetch the image
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status}`);
+    }
+    
+    // Get the blob
+    const blob = await response.blob();
+    
+    // Create download link
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:]/g, '-');
+    link.download = `ai-generated-image-${timestamp}.png`;
+    
+    // Force download
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Clean up
+    window.URL.revokeObjectURL(url);
+    
+    console.log('Download completed successfully');
+  } catch (error) {
+    console.error('Download error:', error);
+    throw error;
+  }
+}
+
 function clearAll() {
   if (form) form.reset();
   
@@ -497,17 +538,54 @@ document.addEventListener('DOMContentLoaded', () => {
   // Download button event listener
   const downloadBtn = document.getElementById('downloadBtn');
   if (downloadBtn) {
-    downloadBtn.addEventListener('click', () => {
+    downloadBtn.addEventListener('click', async () => {
       const resultImg = document.getElementById('resultImg');
       
       if (resultImg && !resultImg.classList.contains('hidden') && resultImg.src) {
-        const link = document.createElement('a');
-        link.href = resultImg.src;
-        link.download = 'ai-generated-image.png';
-        link.click();
-        toast('Download started', 'success');
+        try {
+          await downloadImage(resultImg.src);
+          toast('Download completed!', 'success');
+        } catch (error) {
+          console.error('Download failed:', error);
+          toast('Download failed', 'error');
+        }
       } else {
         toast('No image to download', 'error');
+      }
+    });
+  }
+  
+  // Open button event listener
+  const openBtn = document.getElementById('openBtn');
+  if (openBtn) {
+    openBtn.addEventListener('click', () => {
+      const resultImg = document.getElementById('resultImg');
+      
+      if (resultImg && !resultImg.classList.contains('hidden') && resultImg.src) {
+        window.open(resultImg.src, '_blank');
+        toast('Image opened in new tab', 'success');
+      } else {
+        toast('No image to open', 'error');
+      }
+    });
+  }
+  
+  // Copy URL button event listener
+  const copyUrlBtn = document.getElementById('copyUrlBtn');
+  if (copyUrlBtn) {
+    copyUrlBtn.addEventListener('click', async () => {
+      const resultImg = document.getElementById('resultImg');
+      
+      if (resultImg && !resultImg.classList.contains('hidden') && resultImg.src) {
+        try {
+          await navigator.clipboard.writeText(resultImg.src);
+          toast('Image URL copied to clipboard', 'success');
+        } catch (error) {
+          console.error('Copy failed:', error);
+          toast('Failed to copy URL', 'error');
+        }
+      } else {
+        toast('No image URL to copy', 'error');
       }
     });
   }
