@@ -131,7 +131,7 @@ async function handleFormSubmit(e) {
     
     // Prepare API payload
     const payload = {
-      model: 'google/nano-banana',
+      model: 'google/nano-banana-edit',
       input: {
         prompt: prompt,
         output_format: 'png',
